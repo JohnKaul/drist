@@ -1,9 +1,8 @@
 #!/bin/sh
-set -x
 
-if [ -z "$1" ]
+if [ "$#" -ne 1 ]
 then
-	echo "il faut indiquer un serveur"
+	echo "You should pass a server as a parameter"
 	exit 1
 else
 	HOSTNAME=$(ssh "$1" hostname -s)
@@ -22,7 +21,7 @@ then
 	then
 		find files/ -type f | cut -d '/' -f 2- > "${LIST}"
 		cat $LIST
-		rsync -vlD --files-from="${LIST}" files/ ${1}:/
+		rsync -vlD --files-from="${LIST}" files/ "${1}":/
 		rm "$LIST"
 	fi
 fi
@@ -33,7 +32,27 @@ then
 	if [ -f "$LIST" ]
 	then
 		find "files-${HOSTNAME}/" -type f | cut -d '/' -f 2- > "${LIST}"
-		rsync -vlD --files-from="${LIST}" "files-${HOSTNAME}/" ${1}:/
+		rsync -vlD --files-from="${LIST}" "files-${HOSTNAME}/" "${1}":/
 		rm "$LIST"
 	fi
+fi
+
+if [ -f "script" ]
+then
+	cat "script" | \
+		ssh "${1}" 'DRIST=$(mktemp /tmp/drist.XXXXXXXXXXXX) &&
+			    cat - > "$DRIST" &&
+			    chmod u+x "$DRIST" &&
+			    "$DRIST" ;
+	                    rm "$DRIST"'
+fi
+
+if [ -f "script-${HOSTNAME}" ]
+then
+	cat "script-${HOSTNAME}" | \
+		ssh "${1}" 'DRIST=$(mktemp /tmp/drist.XXXXXXXXXXXX) &&
+			    cat - > "$DRIST" &&
+			    chmod u+x "$DRIST" &&
+			    "$DRIST" ;
+	                    rm "$DRIST"'
 fi
