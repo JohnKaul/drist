@@ -1,0 +1,11 @@
+#!/bin/sh
+
+doas pkg_add rlwrap git taskwarrior tig tor ecl
+doas useradd -m solene
+doas chown solene /home/solene
+install -d -o solene -m 700 /home/solene/.ssh
+install -d -o solene -m 700 /home/solene/dev/
+
+cd /home/solene/dev
+doas su solene -c 'git clone bitreich.org/clic'
+

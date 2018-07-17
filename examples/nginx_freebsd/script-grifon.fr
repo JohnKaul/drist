@@ -1,0 +1,3 @@
+#!/bin/sh
+
+doas chown public_user /var/www/htdocs/index.html

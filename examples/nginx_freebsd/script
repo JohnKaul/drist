@@ -1,0 +1,5 @@
+#!/bin/sh
+
+sudo pkg install -y nginx
+echo "nginx_enable=yes" | sudo tee /etc/rc.conf.d/nginx
+sudo service nginx start

@@ -1,0 +1,5 @@
+#!/bin/sh
+
+doas pkg_add nginx
+doas rcctl enable nginx
+doas rcctl start nginx
