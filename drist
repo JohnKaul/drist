@@ -1,0 +1,39 @@
+#!/bin/sh
+set -x
+
+if [ -z "$1" ]
+then
+	echo "il faut indiquer un serveur"
+	exit 1
+else
+	HOSTNAME=$(ssh "$1" hostname -s)
+	if [ "$?" -ne 0 ]
+	then
+		echo "Error while ssh ${1}"
+		exit 2
+	fi
+fi
+
+# -l = keep symlink / -D = special device
+if [ -d "files" ]
+then
+	LIST=$(mktemp /tmp/drist-rsync.XXXXXXXXXX)
+	if [ -f "$LIST" ]
+	then
+		find files/ -type f | cut -d '/' -f 2- > "${LIST}"
+		cat $LIST
+		rsync -vlD --files-from="${LIST}" files/ ${1}:/
+		rm "$LIST"
+	fi
+fi
+
+if [ -d "files-${HOSTNAME}" ]
+then
+	LIST=$(mktemp /tmp/drist-rsync.XXXXXXXXXX)
+	if [ -f "$LIST" ]
+	then
+		find "files-${HOSTNAME}/" -type f | cut -d '/' -f 2- > "${LIST}"
+		rsync -vlD --files-from="${LIST}" "files-${HOSTNAME}/" ${1}:/
+		rm "$LIST"
+	fi
+fi
