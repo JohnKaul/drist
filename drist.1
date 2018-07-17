@@ -15,7 +15,7 @@ is a tool to configure remote servers using
 and
 .Xr rsync 1 .
 .Nm
-has been designed to be simple, so it may not offers features you want.
+has been designed to be simple, so it may not offer features you want.
 
 When you run
 .Nm
@@ -32,7 +32,7 @@ The second directory is
 with
 .Ar servername
 being the result of the command
-.Ql hostname -s
+.Ql uname -n
 on the remote server. The content of this folder will be copied on the remote server
 .Ar server
 from the root filesystem /. This folder is useful if you need to add some files only
@@ -45,16 +45,16 @@ will look at two files in the current working directory.
 The first file is
 .Ar script
 and will be copied on the remote server and then executed and deleted after execution
-(shall the script success or fail).
+(shall the script succeed or fail).
 
 The second file is
 .Ar script-hostname
 with
 .Ar servername
 being the result of the command
-.Ql hostname -s
+.Ql uname -n
 , if it exists, it will be copied on the remote server and then executed and deleted after execution
-(shall the script success or fail). This is useful if you need to run commands on a particular
+(shall the script succeed or fail). This is useful if you need to run commands on a particular
 servers.
 
 I recommend to write small "modules" installing required packages for a task and providing

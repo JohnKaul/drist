@@ -5,7 +5,7 @@ then
 	echo "You should pass a server as a parameter"
 	exit 1
 else
-	HOSTNAME=$(ssh "$1" hostname -s)
+	HOSTNAME=$(ssh "$1" "uname -n")
 	if [ "$?" -ne 0 ]
 	then
 		echo "Error while ssh ${1}"
