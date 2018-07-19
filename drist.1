@@ -19,43 +19,78 @@ has been designed to be simple, so it may not offer features you want.
 
 When you run
 .Nm
-, it will look at two special directories in the current working directory.
+, it will look at special directories in the current working directory.
 
-The first is
+The whole sequence is the following, with HOSTNAME being the result of
+.Ql uname -n
+on the remote system.
+
+.Bl -enum -offset indent -compact
+.It
+if folder
 .Ar files
-and the content of this folder will be copied on the remote server
+exists, files in it are copied on
 .Ar server
-from the root filesystem /.
+.It
+if folder
+.Ar files-HOSTNAME
+exists, files in it are copied on
+.Ar server
+.It
+if folder
+.Ar absent
+exists, files in it are removed remotely on
+.Ar server
+.It
+if folder
+.Ar absent-HOSTNAME
+exists, files in it are removed remotely on
+.Ar server
+.It
+if file
+.Ar script
+exists, it is executed remotely on
+.Ar server
+.It
+if file
+.Ar script-HOSTNAME
+exists, it is executed remotely on
+.Ar server
+.El
 
-The second directory is
-.Ar files-servername
+
+If directory
+.Ar files
+is present, the content of this folder will be copied on the remote server
+.Ar server
+from the root filesystem /. You can create
+.Ar files-HOSTNAME
 with
-.Ar servername
+.Ar HOSTNAME
 being the result of the command
 .Ql uname -n
-on the remote server. The content of this folder will be copied on the remote server
-.Ar server
-from the root filesystem /. This folder is useful if you need to add some files only
-on certains servers.
+on the remote server. The content of this foldre will be copied on the remote server
+after the
+.Ar files
+directory. This folder is useful if you need to add some files only on certains servers.
 
 After the files are copied,
 .Nm
-will look at two files in the current working directory.
+will look at two the folders
+.Ar absent
+and
+.Ar absent-HOSTNAME
+in the current working directory.
+.Nm
+will remotely delete all files listed in the tree of the directory.
 
-The first file is
+Finally, the file
 .Ar script
-and will be copied on the remote server and then executed and deleted after execution
-(shall the script succeed or fail).
-
-The second file is
-.Ar script-hostname
-with
-.Ar servername
-being the result of the command
-.Ql uname -n
-, if it exists, it will be copied on the remote server and then executed and deleted after execution
-(shall the script succeed or fail). This is useful if you need to run commands on a particular
-servers.
+be copied on the remote server and then executed and deleted after execution
+(shall the script succeed or fail). If
+.Ar script-HOSTNAME
+exists, it will be procedded too in the same way. This is useful if you need 
+to run commands on a particular servers.
 
 I recommend to write small "modules" installing required packages for a task and providing
 the files needed rather than an all-in-one module to deploy an entire system.

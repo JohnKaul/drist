@@ -1,61 +1,69 @@
 #!/bin/sh
 
-if [ "$#" -ne 1 ]
-then
+if [ "$#" -ne 1 ]; then
 	echo "You should pass a server as a parameter"
 	exit 1
 else
 	HOSTNAME=$(ssh "$1" "uname -n")
-	if [ "$?" -ne 0 ]
-	then
+	if [ "$?" -ne 0 ]; then
 		echo "Error while ssh ${1}"
 		exit 2
 	fi
 fi
 
-# -l = keep symlink / -D = special device
-if [ -d "files" ]
-then
-	LIST=$(mktemp /tmp/drist-rsync.XXXXXXXXXX)
-	if [ -f "$LIST" ]
+# $1 = directory name
+# $2 = remote server
+copy_files() {
+	# -l = keep symlink / -D = special device
+	if [ -d "${1}" ]
 	then
-		find files/ -type f | cut -d '/' -f 2- > "${LIST}"
-		printf 'Copying files :\n' ; cat $LIST
-		rsync -lD --files-from="${LIST}" files/ "${1}":/
-		rm "$LIST"
+		LIST=$(mktemp /tmp/drist-rsync.XXXXXXXXXX)
+		if [ -f "$LIST" ]
+		then
+			printf 'Copying files:\n'
+			find "${1}"/ -type f | cut -d '/' -f 2- | tee "${LIST}"
+			rsync -lD --files-from="${LIST}" "${1}/" "${2}":/
+			rm "$LIST"
+		fi
 	fi
-fi
+}
 
-if [ -d "files-${HOSTNAME}" ]
-then
-	LIST=$(mktemp /tmp/drist-rsync.XXXXXXXXXX)
-	if [ -f "$LIST" ]
+# $1 = script filename
+# $2 = remote server
+remote_script() {
+	if [ -f "${1}" ]
 	then
-		find "files-${HOSTNAME}/" -type f | cut -d '/' -f 2- > "${LIST}"
-		printf 'Copying files only for %s:\n' "${HOSTNAME}" ; cat $LIST
-		rsync -lD --files-from="${LIST}" "files-${HOSTNAME}/" "${1}":/
-		rm "$LIST"
+		printf 'Executing script\n'
+		cat "${1}" | \
+			ssh "${2}" 'DRIST=$(mktemp /tmp/drist.XXXXXXXXXXXX) &&
+				    cat - > "$DRIST" &&
+				    chmod u+x "$DRIST" &&
+				    "$DRIST" ;
+				    rm "$DRIST"'
 	fi
-fi
+}
 
-if [ -f "script" ]
-then
-	printf 'Executing script\n'
-	cat "script" | \
-		ssh "${1}" 'DRIST=$(mktemp /tmp/drist.XXXXXXXXXXXX) &&
-			    cat - > "$DRIST" &&
-			    chmod u+x "$DRIST" &&
-			    "$DRIST" ;
-	                    rm "$DRIST"'
-fi
+# $1 = directory name
+# $2 = remote server
+# it uses rm -v which is not POSIX compliant but most systems have it
+delete_files() {
+	if [ -d "${1}" ]
+	then
+		LIST=$(mktemp /tmp/drist-rsync.XXXXXXXXXX)
+		if [ -f "$LIST" ]
+		then
+			printf 'Removing files:\n' 
+			find "$1" -type f | sed 's/"/\\&/' | \
+				awk -v path="${1}" '{ printf "\"%s\" ",substr($0,length(path)+1)}' > "${LIST}"
+			ssh "$2" "rm -v $(cat $LIST)"
+		fi
+	fi
+}
 
-if [ -f "script-${HOSTNAME}" ]
-then
-	printf 'Executing script only for %s:\n' "${HOSTNAME}"
-	cat "script-${HOSTNAME}" | \
-		ssh "${1}" 'DRIST=$(mktemp /tmp/drist.XXXXXXXXXXXX) &&
-			    cat - > "$DRIST" &&
-			    chmod u+x "$DRIST" &&
-			    "$DRIST" ;
-	                    rm "$DRIST"'
-fi
+
+copy_files "files" "$1"
+copy_files "files-${HOSTNAME}" "$1"
+remote_script "script" "$1"
+remote_script "script-${HOSTNAME}" "$1"
+delete_files "absent" "$1"
+delete_files "absent-${HOSTNAME}" "$1"
