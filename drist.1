@@ -15,36 +15,40 @@ is a tool to configure remote servers using
 and
 .Xr rsync 1 .
 .Nm
-has been designed to be simple, so it may not offer features you want.
+has been designed to be simple, so it may not offer all the features
+you want.
 
 When you run
-.Nm
-, it will look at special directories in the current working directory.
+.Nm Ns
+, it will look at a set of special directories in the current working
+directory.
 
-The whole sequence is the following, with HOSTNAME being the result of
+Here is the whole sequence, with
+.Em HOSTNAME
+being the result of
 .Ql uname -n
-on the remote system.
+on the remote system:
 
 .Bl -enum -offset indent -compact
 .It
 if folder
 .Ar files
-exists, files in it are copied on
+exists, its content is copied to
 .Ar server
 .It
 if folder
-.Ar files-HOSTNAME
-exists, files in it are copied on
+.Ar files- Ns Em HOSTNAME
+exists, its content copied to
 .Ar server
 .It
 if folder
 .Ar absent
-exists, files in it are removed remotely on
+exists, filenames in it are removed from
 .Ar server
 .It
 if folder
-.Ar absent-HOSTNAME
-exists, files in it are removed remotely on
+.Ar absent- Ns Em HOSTNAME
+exists, filenames in it are removed from
 .Ar server
 .It
 if file
@@ -53,49 +57,57 @@ exists, it is executed remotely on
 .Ar server
 .It
 if file
-.Ar script-HOSTNAME
+.Ar script- Ns Em HOSTNAME
 exists, it is executed remotely on
 .Ar server
 .El
 
-If directory
+The presence of each of those files or directories is optional.
+
+If the directory
 .Ar files
-is present, the content of this folder will be copied on the remote server
+is present, its content will be copied to the remote
 .Ar server
-from the root filesystem /. You can create
-.Ar files-HOSTNAME
+relatively to the root / directory. You can create
+.Ar files- Ns Em HOSTNAME
 with
-.Ar HOSTNAME
+.Em HOSTNAME
 being the result of the command
 .Ql uname -n
-on the remote server. The content of this foldre will be copied on the remote server
-after the
+on the remote server. The content of this folder will be copied to the
+remote server after the
 .Ar files
-directory. This folder is useful if you need to add some files only on certains servers.
+directory has been processed. This folder is useful for adding
+.Em HOSTNAME Ns -specific
+files.
 
 After the files are copied,
 .Nm
 will look at two the folders
 .Ar absent
 and
-.Ar absent-HOSTNAME
+.Ar absent Ns Em HOSTNAME
 in the current working directory.
 .Nm
-will remotely delete all files listed in the tree of the directory.
+will remotely delete all files listed in this directory tree.
 
 Finally, the file
 .Ar script
-be copied on the remote server and then executed and deleted after execution
-(shall the script succeed or fail). If
-.Ar script-HOSTNAME
-exists, it will be procedded too in the same way. This is useful if you need 
-to run commands on a particular servers.
+be copied to the remote server, executed and deleted (shall the script
+succeed or not). If
+.Ar script- Ns Em HOSTNAME
+exists, it will be processed in the same way. This is useful if you
+need to run
+.Em HOSTNAME Ns -specific
+commands.
 
-I recommend to write small "modules" installing required packages for a task and providing
-the files needed rather than an all-in-one module to deploy an entire system.
+I recommend writing small "modules" which would install the required
+packages for a task and provide the files needed, rather than writing a
+full-blown module for deploying an entire system at once.
 
 .Nm 
-does not take care of permissions and ownership. Thoses should be modified by the
+does not handle file permissions and ownership. Thoses should be
+modified by the
 .Ar script
 file.
 .
