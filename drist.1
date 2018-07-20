@@ -5,19 +5,18 @@
 .Nm drist
 .Nd dumb remote installer shell tool, a remote deployment tool
 .Sh SYNOPSIS
-.Nm 
+.Nm
 .Ar server
 .Sh DESCRIPTION
-
 .Nm
 is a tool to configure remote servers using
-.Xr ssh 1 
+.Xr ssh 1
 and
 .Xr rsync 1 .
 .Nm
 has been designed to be simple, so it may not offer all the features
 you want.
-
+.Pp
 When you run
 .Nm
 , it will look at a set of special directories in the current working
@@ -28,76 +27,75 @@ will connect to
 via ssh(1) and request the remote
 .Em HOSTNAME
 by calling
-.Ql uname -n.
-
+.Ql uname -n .
+.Pp
 After that following steps will be executed:
-
 .Bl -enum -offset indent -compact
 .It
 If folder
 .Ar files
 exists, its content is copied to
 .Ar server
-using rsync(1).
+.Xr rsync 1 .
 .It
 If folder
 .Ar files- Ns Em HOSTNAME
 exists, its content copied to
 .Ar server
-using rsync(1).
+using
+.Xr rsync 1 .
 .It
 If folder
 .Ar absent
 exists, filenames in it are deleted on
-.Ar server.
+.Ar server .
 .It
 If folder
 .Ar absent- Ns Em HOSTNAME
 exists, filenames in it are deleted on
-.Ar server.
+.Ar server .
 .It
 If file
 .Ar script
 exists, it is copied to
-.Ar server and executed there.
+.Ar server
+and executed there.
 .It
 If file
 .Ar script- Ns Em HOSTNAME
 exists, it is copied to
-.Ar server and executed there.
+.Ar server
+and executed there.
 .El
-
+.Pp
 The presence of each of those files or directories is optional.
-
+.Pp
 All files in either
 .Ar files
 or
 .Ar absent
 or
 .Ar files- Ns Em HOSTNAME
-etc. are relative to the root (/) directory. The specific files
-for
+etc. are relative to the root (/) directory.
+The specific files for
 .Em HOSTNAME
 are worked on after the common files.
-
+.Pp
 I recommend to write small "modules" which would install the required
 packages for a task and provide the files needed, rather than writing a
 full-blown module for deploying an entire system at once.
-
-.Nm 
-does not handle file permissions and ownership. Thoses should be
-modified by the
+.Nm
+does not handle file permissions and ownership.
+Those should be modified by the
 .Ar script
 file.
-.
 .Sh EXAMPLES
 Please see the
 .Ar examples
 directory in the
 .Nm
 distribution.
-
-.Sh EXIT 
+.Sh EXIT
 .Ex -std drist
 .Sh SEE ALSO
 .Xr rsync 1
