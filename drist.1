@@ -19,89 +19,68 @@ has been designed to be simple, so it may not offer all the features
 you want.
 
 When you run
-.Nm Ns
+.Nm
 , it will look at a set of special directories in the current working
 directory.
-
-Here is the whole sequence, with
+.Nm
+will connect to
+.Ar server
+via ssh(1) and request the remote
 .Em HOSTNAME
-being the result of
-.Ql uname -n
-on the remote system:
+by calling
+.Ql uname -n.
+
+After that following steps will be executed:
 
 .Bl -enum -offset indent -compact
 .It
-if folder
+If folder
 .Ar files
 exists, its content is copied to
 .Ar server
+using rsync(1).
 .It
-if folder
+If folder
 .Ar files- Ns Em HOSTNAME
 exists, its content copied to
 .Ar server
+using rsync(1).
 .It
-if folder
+If folder
 .Ar absent
-exists, filenames in it are removed from
-.Ar server
+exists, filenames in it are deleted on
+.Ar server.
 .It
-if folder
+If folder
 .Ar absent- Ns Em HOSTNAME
-exists, filenames in it are removed from
-.Ar server
+exists, filenames in it are deleted on
+.Ar server.
 .It
-if file
+If file
 .Ar script
-exists, it is executed remotely on
-.Ar server
+exists, it is copied to
+.Ar server and executed there.
 .It
-if file
+If file
 .Ar script- Ns Em HOSTNAME
-exists, it is executed remotely on
-.Ar server
+exists, it is copied to
+.Ar server and executed there.
 .El
 
 The presence of each of those files or directories is optional.
 
-If the directory
+All files in either
 .Ar files
-is present, its content will be copied to the remote
-.Ar server
-relatively to the root / directory. You can create
-.Ar files- Ns Em HOSTNAME
-with
-.Em HOSTNAME
-being the result of the command
-.Ql uname -n
-on the remote server. The content of this folder will be copied to the
-remote server after the
-.Ar files
-directory has been processed. This folder is useful for adding
-.Em HOSTNAME Ns -specific
-files.
-
-After the files are copied,
-.Nm
-will look at two the folders
+or
 .Ar absent
-and
-.Ar absent Ns Em HOSTNAME
-in the current working directory.
-.Nm
-will remotely delete all files listed in this directory tree.
+or
+.Ar files- Ns Em HOSTNAME
+etc. are relative to the root (/) directory. The specific files
+for
+.Em HOSTNAME
+are worked on after the common files.
 
-Finally, the file
-.Ar script
-be copied to the remote server, executed and deleted (shall the script
-succeed or not). If
-.Ar script- Ns Em HOSTNAME
-exists, it will be processed in the same way. This is useful if you
-need to run
-.Em HOSTNAME Ns -specific
-commands.
-
-I recommend writing small "modules" which would install the required
+I recommend to write small "modules" which would install the required
 packages for a task and provide the files needed, rather than writing a
 full-blown module for deploying an entire system at once.
 
