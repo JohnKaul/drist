@@ -34,12 +34,11 @@ remote_script() {
 	if [ -f "${1}" ]
 	then
 		printf 'Executing script\n'
-		cat "${1}" | \
-			ssh "${2}" 'DRIST=$(mktemp /tmp/drist.XXXXXXXXXXXX) &&
-				    cat - > "$DRIST" &&
-				    chmod u+x "$DRIST" &&
-				    "$DRIST" ;
-				    rm "$DRIST"'
+		ssh "${2}" 'DRIST=$(mktemp /tmp/drist.XXXXXXXXXXXX) &&
+		    cat - > "$DRIST" &&
+		    chmod u+x "$DRIST" &&
+		    "$DRIST" ;
+		    rm "$DRIST"' < "$1"
 	fi
 }
 
