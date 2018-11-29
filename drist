@@ -1,8 +1,36 @@
 #!/bin/sh
 
+usage() {
+	echo "$0 [-s [-e sudo|doas]] server"
+	exit 0
+}
+
+
+while getopts se: arg; do
+	case ${arg} in
+		s) SUDO=1 ;;
+		e) SUDO_BIN="${OPTARG}" ;;
+		*) usage ;;
+	esac
+done
+shift $((OPTIND - 1))
+
+# allow to use a privilege escalation program
+if [ "$SUDO" -eq 1 ]
+then
+	# defaulting to sudo
+	if [ -z "$SUDO_BIN" ]
+	then
+		SUDO_BIN=sudo
+	fi
+	EXEC="$SUDO_BIN"
+else
+	EXEC=""
+fi
+
+# check if host exists
 if [ "$#" -ne 1 ]; then
-	echo "You should pass a server as a parameter"
-	exit 1
+	usage
 else
 	HOSTNAME=$(ssh "$1" "uname -n")
 	if [ "$?" -ne 0 ]; then
@@ -22,7 +50,7 @@ copy_files() {
 		then
 			printf 'Copying files:\n'
 			find "${1}"/ -type f | cut -d '/' -f 2- | tee "${LIST}"
-			rsync -lD --files-from="${LIST}" "${1}/" "${2}":/
+			rsync --rsync-path="${EXEC} rsync" -lD --files-from="${LIST}" "${1}/" "${2}":/
 			rm "$LIST"
 		fi
 	fi
@@ -34,11 +62,11 @@ remote_script() {
 	if [ -f "${1}" ]
 	then
 		printf 'Executing script\n'
-		ssh "${2}" 'DRIST=$(mktemp /tmp/drist.XXXXXXXXXXXX) &&
-		    cat - > "$DRIST" &&
-		    chmod u+x "$DRIST" &&
-		    "$DRIST" ;
-		    rm "$DRIST"' < "$1"
+		ssh "${2}" "DRIST=$(mktemp /tmp/drist.XXXXXXXXXXXX) &&
+		    cat - > \$DRIST &&
+		    chmod u+x \$DRIST &&
+		    ${EXEC} \$DRIST ;
+		    rm \$DRIST" < "$1"
 	fi
 }
 
@@ -54,7 +82,7 @@ delete_files() {
 			printf 'Removing files:\n' 
 			find "$1" -type f | sed 's/"/\\&/' | \
 				awk -v path="${1}" '{ printf "\"%s\" ",substr($0,length(path)+1)}' > "${LIST}"
-			test -s "$LIST" && ssh "$2" "rm -v $(cat $LIST)"
+			test -s "$LIST" && ssh "$2" "${EXEC} rm -v $(cat $LIST)"
 		fi
 	fi
 }

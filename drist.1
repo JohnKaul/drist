@@ -6,7 +6,18 @@
 .Nd dumb remote installer shell tool, a remote deployment tool
 .Sh SYNOPSIS
 .Nm
+.Op Fl s Op Fl e Ar sudo|doas
 .Ar server
+.Sh OPTIONS
+.Op Fl s
+use a program to execute a command as root on the remote server.
+Default is sudo.
+
+.Op Fl e Ar binary
+binary to use for executing the commands as root.
+This flag is only useful when used with
+.Fl s .
+
 .Sh DESCRIPTION
 .Nm
 is a tool to configure remote servers using
@@ -14,8 +25,7 @@ is a tool to configure remote servers using
 and
 .Xr rsync 1 .
 .Nm
-has been designed to be simple, so it may not offer all the features
-you want.
+has been designed to be simple, so it may not offer all the features you want.
 .Pp
 When you run
 .Nm
