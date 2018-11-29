@@ -1,10 +1,14 @@
 #!/bin/sh
 
+SIMULATE=0
+SUDO=0
+SUDO_BIN=sudo
+EXEC=""
+
 usage() {
-	echo "$0 [-s [-e sudo|doas]] server"
+	echo "$0 [-n] [-s [-e sudo|doas]] server"
 	exit 0
 }
-
 
 while getopts nse: arg; do
 	case ${arg} in
@@ -19,14 +23,7 @@ shift $((OPTIND - 1))
 # allow to use a privilege escalation program
 if [ "$SUDO" -eq 1 ]
 then
-	# defaulting to sudo
-	if [ -z "$SUDO_BIN" ]
-	then
-		SUDO_BIN=sudo
-	fi
 	EXEC="$SUDO_BIN"
-else
-	EXEC=""
 fi
 
 # check if host exists
