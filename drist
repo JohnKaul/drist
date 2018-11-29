@@ -50,7 +50,7 @@ copy_files() {
 		if [ -f "$LIST" ]
 		then
 			printf 'Copying files from folder "%s":\n' "$1"
-			find "${1}"/ -type f | cut -d '/' -f 2- | tee "${LIST}" | sed 's/^/	/'
+			find "${1}"/ -type f | cut -d '/' -f 2- | tee "${LIST}" | sed 's/^/	\//'
 			if [ "$SIMULATE" -ne 1 ]
 			then
 				rsync --rsync-path="${EXEC} rsync" -lD --files-from="${LIST}" "${1}/" "${2}":/
