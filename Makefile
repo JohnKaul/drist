@@ -2,8 +2,6 @@
 # See the LICENSE file for copyright and license details.
 .POSIX:
 
-VERSION = 1.02
-
 BIN    = drist
 PREFIX = /usr
 BINDIR = ${PREFIX}/bin
@@ -18,7 +16,6 @@ install:
 	@chmod 755 "${DESTDIR}${BINDIR}/${BIN}"
 	@echo installing manual page to ${DESTDIR}${MANDIR}/man1
 	@mkdir -p ${DESTDIR}${MANDIR}/man1
-	@sed "s/VERSION/${VERSION}/g" < ${BIN}.1 > ${DESTDIR}${MANDIR}/man1/${BIN}.1
 	@chmod 644 ${DESTDIR}${MANDIR}/man1/${BIN}.1
 
 uninstall:
