@@ -6,10 +6,17 @@
 .Nd dumb remote installer shell tool, a remote deployment tool
 .Sh SYNOPSIS
 .Nm
+.Op Fl p
 .Op Fl n
 .Op Fl s Op Fl e Ar sudo|doas
 .Ar server
 .Sh OPTIONS
+.Op Fl p
+to use persistent ssh connection, allowing to ssh only once
+for the differents steps.
+This uses ControlMaster feature from
+.Xr ssh 1 .
+
 .Op Fl n
 to simulate.
 Tells 
@@ -118,6 +125,8 @@ distribution.
 .Ex -std drist
 .Sh SEE ALSO
 .Xr rsync 1
+.Xr ssh 1
+.Xr ssh_config 5
 .Sh Authors
 .An -nosplit
 The

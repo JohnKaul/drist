@@ -4,17 +4,19 @@ SIMULATE=0
 SUDO=0
 SUDO_BIN=sudo
 EXEC=""
+SSHONCE=0
 
 usage() {
 	echo "$0 [-n] [-s [-e sudo|doas]] server"
 	exit 0
 }
 
-while getopts nse: arg; do
+while getopts pnse: arg; do
 	case ${arg} in
 		n) SIMULATE=1 ;;
 		s) SUDO=1 ;;
 		e) SUDO_BIN="${OPTARG}" ;;
+		p) SSHONCE=1 ;;
 		*) usage ;;
 	esac
 done
@@ -26,11 +28,17 @@ then
 	EXEC="$SUDO_BIN"
 fi
 
+# use ControlMaster to make connections persistent
+if [ "$SSHONCE" -eq 1 ]
+then
+	SSH_PARAMS=-o"ControlMaster=auto"" "-o"ControlPath=/tmp/drist_ssh_%h_%p_%r.sock"" "-o"ControlPersist=1m"
+fi
+
 # check if host exists
 if [ "$#" -ne 1 ]; then
 	usage
 else
-	HOSTNAME=$(ssh "$1" "${EXEC} uname -n")
+	HOSTNAME=$(ssh $SSH_PARAMS "$1" "${EXEC} uname -n")
 	if [ "$?" -ne 0 ]; then
 		echo "Error while ssh ${1}"
 		exit 2
@@ -50,7 +58,7 @@ copy_files() {
 			find "${1}"/ -type f | cut -d '/' -f 2- | tee "${LIST}" | sed 's/^/	\//'
 			if [ "$SIMULATE" -ne 1 ]
 			then
-				rsync --rsync-path="${EXEC} rsync" -lD --files-from="${LIST}" "${1}/" "${2}":/
+				rsync -e "ssh $SSH_PARAMS" --rsync-path="${EXEC} rsync" -lD --files-from="${LIST}" "${1}/" "${2}":/
 			fi
 			rm "$LIST"
 		fi
@@ -65,7 +73,7 @@ remote_script() {
 		printf 'Executing file "%s":\n' "$1"
 		if [ "$SIMULATE" -ne 1 ]
 		then
-			ssh "${2}" "DRIST=$(mktemp /tmp/drist.XXXXXXXXXXXX) &&
+			ssh $SSH_PARAMS "${2}" "DRIST=$(mktemp /tmp/drist.XXXXXXXXXXXX) &&
 			    cat - > \$DRIST &&
 			    chmod u+x \$DRIST &&
 			    ${EXEC} \$DRIST ;
@@ -91,7 +99,7 @@ delete_files() {
 
 			if [ "$SIMULATE" -ne 1 ]
 			then
-				test -s "$LIST" && ssh "$2" "${EXEC} rm $(cat $LIST)"
+				test -s "$LIST" && ssh $SSH_PARAMS "$2" "${EXEC} rm $(cat $LIST)"
 			fi
 			rm $LIST
 		fi
@@ -105,3 +113,9 @@ remote_script "script" "$1"
 remote_script "script-${HOSTNAME}" "$1"
 delete_files "absent" "$1"
 delete_files "absent-${HOSTNAME}" "$1"
+
+# close socket if persistance is actived
+if [ "$SSHONCE" -eq 1 ]
+then
+	ssh $SSH_PARAMS -O exit -N "$1"
+fi
