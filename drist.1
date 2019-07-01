@@ -16,23 +16,19 @@ to use persistent ssh connection, allowing to ssh only once
 for the differents steps.
 This uses ControlMaster feature from
 .Xr ssh 1 .
-
 .Op Fl n
 to simulate.
 Tells
 .Nm
 to show what will happens if it runs.
 This will make a ssh connection to check the remote hostname.
-
 .Op Fl s
 use a program to execute a command as root on the remote server.
 Default is sudo.
-
 .Op Fl e Ar binary
 binary to use for executing the commands as root.
 This flag is only useful when used with
 .Fl s .
-
 .Sh DESCRIPTION
 .Nm
 is a tool to configure remote servers using
@@ -124,8 +120,8 @@ distribution.
 .Sh EXIT
 .Ex -std drist
 .Sh SEE ALSO
-.Xr rsync 1
-.Xr ssh 1
+.Xr rsync 1 ,
+.Xr ssh 1 ,
 .Xr ssh_config 5
 .Sh Authors
 .An -nosplit
