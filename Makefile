@@ -5,15 +5,17 @@
 BIN    = drist
 PREFIX ?= /usr/local
 BINDIR ?= ${PREFIX}/bin
-MANDIR ?= ${PREFIX}/share/man
+MANDIR ?= ${PREFIX}/man
 
 all:
 
 install: 
 	@echo installing executable to "${DESTDIR}${PREFIX}/bin"
-	@install -D "${BIN}" "${DESTDIR}${BINDIR}/${BIN}"
+	@mkdir -p "${DESTDIR}${BINDIR}"
+	@install "${BIN}" "${DESTDIR}${BINDIR}/${BIN}"
 	@echo installing manual page to ${DESTDIR}${MANDIR}/man1
-	@install -D "${BIN}.1" "${DESTDIR}${MANDIR}/man1/${BIN}.1"
+	@mkdir -p "${DESTDIR}${MANDIR}/man1"
+	@install "${BIN}.1" "${DESTDIR}${MANDIR}/man1/${BIN}.1"
 
 uninstall:
 	@echo removing executable file from "${DESTDIR}${PREFIX}/bin"
