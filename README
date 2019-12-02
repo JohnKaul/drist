@@ -1,0 +1,38 @@
+drist
+-----
+
+drist is a tool to configure and synchronize configurations to servers.
+
+
+Build and install
+-----------------
+
+# make install
+
+
+Usage and examples
+------------------
+
+See the examples directory.
+
+
+Dependencies
+------------
+
+- POSIX sh and shell utilities.
+- sudo or doas (optional)
+- ssh
+- rsync
+- POSIX make (optional)
+
+
+License
+-------
+
+See LICENSE file.
+
+
+Author
+------
+
+Solène Rapenne <solene@perso.pw>
