@@ -64,7 +64,7 @@ copy_files() {
 			find "${1}"/ -type f -or -type l | cut -d '/' -f 2- | tee "${LIST}" | sed 's/^/	\//'
 			if [ "$SIMULATE" -ne 1 ]
 			then
-				rsync -e "ssh $SSH_PARAMS" --rsync-path="${EXEC} rsync" -lD --files-from="${LIST}" "${1}/" "${2}":/
+				rsync -e "ssh $SSH_PARAMS" --rsync-path="${EXEC} rsync" -lDp --files-from="${LIST}" "${1}/" "${2}":/
 			fi
 			rm "$LIST"
 		fi
