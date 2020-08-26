@@ -1,0 +1,56 @@
+V2.00
+=======
+
+/!\ This update involves major changes, don't use it unless
+    you can afford to rewrite all your drist modules.
+
+- remove simulate mode
+- remove "absent" support
+- files are now copied under ~/.drist_files_XXXXXX which mean
+  files must be moved to the system from the script (using
+  rsync, install whatever)
+
+This solves many issues:
+	- you can't destroy your system because of rsync
+	  removing symlink to replace them by directories
+	  (common on FreeBSD where /home is a link to /usr/home)
+	- files aren't available on the system with a permission
+	  derived from the origin server, they can be properly copied
+	  with the correct permissions and ownership from the script
+	- absent function was not useful
+	- simulate option was not useful
+
+V1.05 - 2020-07-01
+==================
+
+- Add -d flag to use short hostname
+- Fix order of execution of the steps
+- Add -p flag in rsync to keep permissions
+- README added
+
+V1.04
+=======
+
+- Add flag for persistent ssh connection
+
+V1.03 - 2018-12-03
+=======
+
+- Add a licence
+
+V1.02 - 2018-11-29
+==================
+
+- Code logic change, no functional change
+
+
+V1.01 - 2018-11-29
+==================
+
+- Add support for a simulate flag
+
+
+V1.00 - 2018-11-29
+==================
+
+- Add support for sudo / doas
