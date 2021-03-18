@@ -37,6 +37,7 @@ If you specify multiples servers,
 .Nm
 will loop over the list respecting the list order.
 Note that only one file can be used in the command line.
+.El
 .Sh DESCRIPTION
 .Nm
 is a tool to configure remote servers using
@@ -53,7 +54,9 @@ directory.
 .Nm
 will connect to
 .Ar server
-via ssh(1) and request the remote
+via
+.Xr ssh 1
+and request the remote
 .Em HOSTNAME
 by calling
 .Ql uname -n .
