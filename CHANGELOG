@@ -1,9 +1,27 @@
+v2.03 - 2025-07-29
+==================
+
+- Switched from the use of `rsync` to `scp` to support usage from
+  systems without `rsync` like in the case of a small jail or VM.
+- Added '-i' flag to support specifying script to run (in lieu of
+  having to change to directory where 'script' resides before launch).
+- Added '-f' flag to support specifying files-directory to copy (in
+  lieu of having to change to directory where 'files' resides before
+  launch).
+- "EXEC" defaults to use 'exec sh -c' to get a POSIX shell (defence
+  against quirky remote shells).
+- Added '-F' flag to support specifying a specific file to copy.
+- Made `doas` default for elevated permissions instead of `sudo`.
+- Added function headers.
+- Minor syntax tweak (mostly, cosmetic).
+- Made -s optional; if only -e switch is provided, -s is implied.
+- Updated man page.
+
 V2.02 - 2020-08-27
 ==================
 
 - Fix an issue in which drist wasn't calling exit when the
   temporary directory can't be created
-
 
 V2.01 - 2020-08-27
 ==================
