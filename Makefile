@@ -3,24 +3,21 @@
 .POSIX:
 
 BIN    = drist
-PREFIX ?= /usr/local
-BINDIR ?= ${PREFIX}/bin
-MANDIR ?= ${PREFIX}/share/man
+PREFIX ?= /usr/local/bin
+MANDIR ?= /usr/local/share/man/man1
 
 all:
 
 install: 
-	@echo installing executable to "${DESTDIR}${PREFIX}/bin"
-	@mkdir -p "${DESTDIR}${BINDIR}"
-	@install -m 0755 "${BIN}" "${DESTDIR}${BINDIR}/${BIN}"
-	@echo installing manual page to ${DESTDIR}${MANDIR}/man1
-	@mkdir -p "${DESTDIR}${MANDIR}/man1"
-	@install -m 0644 "${BIN}.1" "${DESTDIR}${MANDIR}/man1/${BIN}.1"
+	@echo installing executable to "${PREFIX}"
+	@install -d -o root -g wheel -m 0755 "${BIN}" "${PREFIX}/${BIN}"
+	@echo installing manual page to ${MANDIR}/man1
+	@install -d -o root -g wheel -m 0644 "${BIN}.1" "${MANDIR}/${BIN}.1"
 
 uninstall:
-	@echo removing executable file from "${DESTDIR}${PREFIX}/bin"
-	@rm -f "${DESTDIR}${BINDIR}/${BIN}"
-	@echo removing manual page from ${DESTDIR}${MANDIR}/man1
-	@rm -f ${DESTDIR}${MANDIR}/man1/${BIN}.1
+	@echo removing executable file from "${PREFIX}"
+	@rm -f "${PREFIX}/${BIN}"
+	@echo removing manual page from ${MANDIR}
+	@rm -f ${MANDIR}/${BIN}.1
 
-.PHONY: all install uninstall clean
+.PHONY: all install uninstall
