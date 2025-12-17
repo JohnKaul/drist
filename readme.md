@@ -1,5 +1,7 @@
 # drist
 
+*_NOTE_*: This is a fork of the origional drsit. See the [HISTORY](#history) section below.
+
 ## BRIEF
 drist is a tool to configure and synchronize configurations to, and/or run scrips on remote host(s) via scp(1) and ssh(1).
 
@@ -83,4 +85,4 @@ Upload all files in a directory to the ACME host.
 The original drist is located: 
 https://dataswamp.org/~solene/page-drist-official-website.html
 
-- Updated by John Kaul. Please see the CHANGELOG for updates.
+- Updated by John Kaul. Please see the [CHANGELOG](CHANGELOG) for updates.
