@@ -1,8 +1,0 @@
-#!/bin/sh
-
-## script for freebsd
-## need to login as root to use it
-
-pkg install -y sudo
-
-pw usermod remote_user -G wheel,operator,staff
