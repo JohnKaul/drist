@@ -47,7 +47,11 @@ line.
 .Pp
 .Sh DESCRIPTION
 drist is a tool to configure remote servers using ssh(1) and
-scp(1) by uploading files and executing scripts.
+tar(1) by uploading files and executing scripts.
+.Pp
+drist will upload files via a tar(1) pipeline through ssh(1) and
+execute scripts on remote hosts via ssh(1) in a POSIX compliant
+shell.
 .Pp
 When run without 'f', 'F', or 'S' optional switches, drist will
 look for a directory called "files" and/or a script called
@@ -58,8 +62,8 @@ either: 'files' or 'files-HOSTNAME' its contents are copied to the
 suppled 'destination'.
 .Pp
 - If the current working directory contains a file called either: 'scrpt' 
-or 'script-HOSTNAME' it is executed on 'destination' via a POSIX
-shell.
+or 'script-HOSTNAME' it is copied to, and executed on,
+'destination' via a POSIX shell.
 .Pp
 .Em NOTE
 The 'HOSTNAME' string in: 'files-HOSTNAME' and 'sript-HOSTNAME', 
@@ -70,45 +74,70 @@ contents will be uploaded and/or executed on the remote host (e.g.
 a directory called: "files-server.local" would only copy files to
 a host who's hostname is: "server.local").
 .Pp
-.Em NOTE
-drist uploads files to the remote host into a temporary directory
-(e.g. ~/.drist_files_XXXXXXXX) before moving them from temporary
-direcotry to the $(HOME) directory.
+drist treats the different filetypes ("files" & "script")
+differently, in that the "files" are considered permanent
+additions to the remote host and the "script" is considered a
+temporary item. Both file types are uploaded to the remote host
+into a temporary directory (e.g. ~/.drist_files_XXXXXXXX), but the
+"files" are moved relative to the remote user's $HOME directory.
+The "script" file is executed relative to the temporary directory
+and delted upon execution (i.e. not moved before execution). See
+the example section below.
+.Pp
+Because permissions can differ from local to remote, drist adopts
+ownership/permissions as seen on the remote side by extracting
+"files" as the remote user.
+.Pp
+.Pp
 .Pp
 .Sh EXAMPLES
 The following examples demonstrate usage with the optional file and
 directory specifier flags for clarity.
 .Pp
-Execute a script ("setup.sh") on the ACME host.
+.Sy Execute a script ("setup.sh") on the ACME host.
 .Bd -literal -offset indent
    # drist -S /place/where/scripts/reside/setup.sh ACME
 .Ed
 .Pp
-Execute a script ("setup.sh") on the ACME host using elevated permissions with `doas`.
+.Sy Execute a script ("setup.sh") on the ACME host using elevated permissions with `doas`.
 .Bd -literal -offset indent
    # drist -e -S /place/where/scripts/reside/setup.sh ACME
 .Ed
 .Pp
-Execute a script ("setup.sh") on the ACME host using elevated permissions with `sudo`.
+.Sy Execute a script ("setup.sh") on the ACME host using elevated permissions with `sudo`.
 .Bd -literal -offset indent
    # drist -e sudo -S /place/where/scripts/reside/setup.sh ACME
 .Ed
 .Pp
-Upload a file ("upload.file") to the ACME host.
+.Sy Upload a file ("upload.file") to the ACME host.
 .Bd -literal -offset indent
     # drist -F /place/where/files/reside/upload.file ACME
 .Ed
 .Pp
-Upload all files in a directory to the ACME host.
+.Sy Upload all files in a directory to the ACME host.
 .Bd -literal -offset indent
     # drist -f /place/where/files/reside/ ACME
+.Ed
+.Pp
+.Sy Example script, executed on remote host ACME, demonstrating how to reference a file uploaded to remote host.
+.Pp
+Script contents:
+.Bd -literal -offset indent
+    #!/bin/sh
+    # Prints contents of 'upload.file'.
+    [ -f "$HOME/upload.file" ] && cat "$HOME/upload.file"
+.Ed
+.Pp
+Upload comand:
+.Bd -literal -offset indent
+    # drist -S /place/where/script/resides/script -F /place/where/files/reside/upload.file ACME
 .Ed
 .Pp
 .Sh EXIT
 The drist utility exits 0 on success, and >0 if an error occurs.
 .Pp
 .Sh SEE ALSO
-.Sx scp(1)
+.Sx tar(1)
 .Sx ssh(1)
 .Sx ssh_config(5)
 .Pp
