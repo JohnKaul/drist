@@ -1,4 +1,4 @@
-.Dd Feb 03 2024
+.Dd Dec 23 2025
 .Dt drist 1
 .Os
 .Au John Kaul
@@ -72,7 +72,11 @@ ssh(1) and request the remote HOSTNAME by calling 'uname -n' and
 if it matches the 'HOSTNAME' in the directory/file name's their
 contents will be uploaded and/or executed on the remote host (e.g.
 a directory called: "files-server.local" would only copy files to
-a host who's hostname is: "server.local").
+a host who's hostname is: "server.local"). These file are also
+considered as important so, even in the case where a single file
+(-F) or a single script (-S) are used, if a 'files-HOSTNMAE'
+and/or 'script-HOSTNAME' are also present in the same directory as
+the -F or -S files, they will also be copied/executed.
 .Pp
 drist treats the different filetypes ("files" & "script")
 differently, in that the "files" are considered permanent
@@ -107,6 +111,11 @@ directory specifier flags for clarity.
 .Sy Execute a script ("setup.sh") on the ACME host using elevated permissions with `sudo`.
 .Bd -literal -offset indent
    # drist -e sudo -S /place/where/scripts/reside/setup.sh ACME
+.Ed
+.Pp
+.Sy Execute a script ("setup.sh") on the ACME host using elevated permissions with `su`.
+.Bd -literal -offset indent
+   # drist -e 'su - root' -S /place/where/scripts/reside/setup.sh ACME
 .Ed
 .Pp
 .Sy Upload a file ("upload.file") to the ACME host.
