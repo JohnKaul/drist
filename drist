@@ -1,5 +1,5 @@
 #!/bin/sh
-#vim:ts=4:shiftwidth=4:
+# vim: ts=4: shiftwidth=4:
 
 ##
 # drist --
@@ -39,20 +39,20 @@
 # ---[ GLOBALS ]--------------------------------------------------
 PRIVILEGES=0                  # Run with escalated privileges
 PRIVILEGES_BIN=doas           # binary to run privileged command.
-EXEC='exec sh -c'			  # posix compliant shell.
+EXEC='exec sh -c'             # posix compliant shell.
 SSHONCE=0                     # set up a socket for persistent connection.
 TRUNCATE=0                    # Remove the domain name from the hostname.
 USE_FILE="script"             # default script file to upload if no optional switches.
 USE_DIR="files"               # default directory to upload if no optional switches.
-SSH_PARAMS=""				  # default ssh parameters.
-COPY_FILE=""			      # default single file to copy.
+SSH_PARAMS=""                 # default ssh parameters.
+COPY_FILE=""                  # default single file to copy.
 
 # ---[ HELPERS ]--------------------------------------------------
 ##
 # usage --
 # @brief displays usage information.
 usage() {
-    echo "$0 v2.05"
+    echo "$0 v2.06"
     echo "$0 [-p] [-d] [-e [sudo|doas]] [-S script-to-run] [-f files-to-copy-directory] [-F single-file-to-copy] destination [...]"
     exit 0
 }
@@ -73,19 +73,17 @@ copy_files() {
     if [ -d "${src_dir}" ]; then
         # create list file
         LIST=$(mktemp /tmp/drist-sync.XXXXXXXXXX)
-        # Get the current working directory.
-        CWD=$(pwd)
         if [ -f "$LIST" ]; then
             # -l = keep symlink / -D = special device
             find "${src_dir}" -type f -or -type l | sed "s#^${src_dir}/##" > "${LIST}"
             # basename of source dir (e.g. files-server.local from /path/files-server.local)
             SRC_BASE=$(basename -- "${src_dir}")
 
-			# Copy files to remote host.
-			tar -cf - -C . . | ssh $SSH_PARAMS "${remote_server}" 'tar -xf - -C '"${remote_tmp}"
+            # Copy files to remote host.
+            tar cf - -C . . | ssh $SSH_PARAMS "${remote_server}" 'tar xf - -C '"${remote_tmp}"
 
-			# Move files into place.
-			ssh $SSH_PARAMS "${remote_server}" "tar cf - -C "${remote_tmp}"/"$SRC_BASE" . | tar xf - -C \"\$HOME\""
+            # Move files into place.
+            ssh $SSH_PARAMS "${remote_server}" "tar cf - -C "${remote_tmp}"/"$SRC_BASE" . | tar xf - -C \"\$HOME\""
 
             rm "$LIST"
         fi
@@ -100,6 +98,11 @@ copy_files() {
 #   $1 - source file (e.g. /path/upload.file)
 #   $2 - remote server name (e.g. server)
 #   $3 - remote tempdir target (e.g. ~/.drist_files_XXXXXXXXXXXXXXX)
+#
+# NOTE: Even in the case when a sigle file is copied to remote host
+#       if a file/directory is labled with the 'HOSTNAME' string in
+#       the ssame directory as the single file, it will be copied as
+#       well.
 copy_single_file() {
     src_file=$1
     remote_server=$2
@@ -109,20 +112,17 @@ copy_single_file() {
         # create list file
         LIST=$(mktemp /tmp/drist-sync.XXXXXXXXXX)
         # Get the current working directory.
-        CWD=$(pwd)                      # Get the current working directory.
         if [ -f "$LIST" ]; then
             # -l = keep symlink / -D = special device
             find "${src_file}" -type f -or -type l | sed "s#^${src_file}/##" > "${LIST}"
 
-            cd "$(dirname -- "$src_file")"
             FILE_NAME=$(basename -- "$src_file")
 
-			# copy file to remote host.
-			tar cf - -C . "./${FILE_NAME}" | ssh $SSH_PARAMS "${remote_server}" 'tar xf - -C '"${remote_tmp}"
+            # copy file to remote host.
+            tar cf - -C "$(dirname -- "$src_file")" "./${FILE_NAME}" | ssh $SSH_PARAMS "${remote_server}" 'tar xf - -C '"${remote_tmp}"
 
-			# move file into place.
-			ssh $SSH_PARAMS "${remote_server}" "tar -cf - -C \"$remote_tmp\" . | tar -xf - -C \"\$HOME\""
-            cd ${CWD}                   # Change back to current working directory.
+            # move file into place.
+            ssh $SSH_PARAMS "${remote_server}" "tar cf - -C \"$remote_tmp\" . | tar xf - -C \"\$HOME\""
             rm "$LIST"
         fi
     fi
