@@ -3,7 +3,7 @@
 *_NOTE_*: This is a fork of the origional drsit. See the [HISTORY](#history) section below.
 
 ## BRIEF
-drist is a tool to configure and synchronize configurations to, and/or run scrips on remote host(s) via scp(1) and ssh(1).
+drist is a tool to configure and synchronize configurations to, and/or run scrips on remote host(s) via ssh(1).
 
 ## SYNOPSIS
     drist [-p] [-d] [-e [sudo|doas]] [-S script] [-f files-directory] [-F file-to-copy] destination [...]
@@ -37,11 +37,40 @@ drist also supports execution from a different working directory via the use of 
 
 destination     Specify the remote servers you want drist to work on. The destination can be a file containing a list of hosts, one per line or it can be addresses passed in the command line. If you specify multiples servers, drist will loop over the list respecting the list order.  Note that only one file can be used in the command line.
 
+## PORTABLE, FRICTIONLESS REMOTE DEPLOYS
+
+drist is built for maximum reach: it only needs a POSIX-compatible
+/bin/sh, an ssh(1) client and tar(1) on the control system. No heavy
+runtimes, no daemon to install, no language-specific toolchains — just
+the standard Unix tools that are already on most servers. That means
+you can push scripts and files to systems (Linux, *BSD, minimal
+containers, appliances that include a shell) with one tiny, auditable
+script.
+
+- **Minimal requirements:** POSIX sh(1) + ssh(1) + tar(1)
+- **No persistent server-side service:** no need to install or run a
+  client/server agent.  
+- **Fast streaming transfers:** streams files over a single ssh(1)
+  connection (reducing IO and latency).
+- **Works over plain SSH:** leverages standard ssh(1) semantics and
+  optional connection persistence (ControlMaster) when available so
+  transfers are secure by default.
+- **Streaming file transfer:** tar(1) over ssh(1) keeps transfers
+  simple, fast, and compatible with both BSD/GNU tar(1).
+- **Auditable & lightweight:** small, readable code you can audit in
+  seconds — ideal for ops, incident response, and constrained
+  environments.
+- **Few dependencies (wide compatibility):** designed to run where
+  heavyweight tooling can’t.
+
+Use drist when you want a small, dependable tool that just works with
+the ubiquitous Unix toolset.
+
 ## BUILD
 default install location: /usr/local/bin
 default man path location: /usr/local/share/man/man1
 ```sh
-    # make install
+    # doas make install
 ```
 
 To change the default install locations the included "configure"
