@@ -10,9 +10,9 @@ all:
 
 install: 
 	@echo installing executable to "${PREFIX}"
-	@install -d -o root -g wheel -m 0755 "${BIN}" "${PREFIX}/"
+	@cp "${BIN}" "${PREFIX}/${BIN}"
 	@echo installing manual page to ${MANDIR}/man1
-	@install -d -o root -g wheel -m 0644 "${BIN}.1" "${MANDIR}/"
+	@cp "${BIN}.1" "${MANDIR}/${BIN}.1"
 
 uninstall:
 	@echo removing executable file from "${PREFIX}"
