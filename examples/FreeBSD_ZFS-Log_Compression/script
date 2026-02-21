@@ -233,14 +233,14 @@ bkp_crontab=$(backup "$CRONTAB_PATH")
 bkp_newsyslog=$(backup "$NEWSYSLOG_PATH")
 
 # Create error trap to undo backups (runs on any command error).
-trap 'restore "${bkp_crontab:-}" "${bkp_newsyslog:-}"' ERR
+#trap 'restore "${bkp_crontab:-}" "${bkp_newsyslog:-}"' ERR
 
 # Create temporary files for edits (atomic).
 tmp_crontab=$(create_temp "crontab")
 tmp_newsyslog=$(create_temp "newsyslog")
 
 # Ensure both temp files are cleaned up on exit
-trap 'remove_file "${tmp_crontab:-}"; remove_file "${tmp_newsyslog:-}"' EXIT
+#trap 'remove_file "${tmp_crontab:-}"; remove_file "${tmp_newsyslog:-}"' EXIT
 
 # Make crontab edits.
 replace_cron_cmd "newsyslog" "newsyslog -t DEFAULT" "$CRONTAB_PATH" "$tmp_crontab"
