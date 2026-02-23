@@ -1,53 +1,105 @@
 # drist
 
-*_NOTE_*: This is a fork of the origional drist. See the [HISTORY](#history) section below.
+*_NOTE_*: This is a fork of the origional drist. See the [HISTORY](#history)
+section below.
 
 ## BRIEF
-drist is a tool to configure and synchronize configurations to, and/or run scrips on remote host(s) via ssh(1).
+
+drist is a tool to configure and synchronize configurations to, and/or run
+scrips on remote host(s) via ssh(1).
 
 ## SYNOPSIS
-    drist [-p] [-d] [-e [sudo|doas]] [-S script] [-f files-directory] [-F file-to-copy] destination [...]
+
+    drist [-p] [-d] [-x | [-X secrets-file]] [-e] [-S script-to-run] [-f files-to-copy-directory] [-F single-file-to-copy] [-T tempdir] destination [...]
+
 
 ## DESCRIPTION
-Remote host configuration preformed with files and scripts without any special configuration syntaxes/languages, daemons, or agents. drist relies on base tools like sed(1), and ssh(1) and aims at being a simple to use and a pluggable automation tool.
 
-When executed without optional "-F", "-f", "-S" flags, drist will execute the following steps from the current working directory:
+Remote host configuration preformed with files and scripts without any special
+configuration syntaxes/languages, daemons, or agents. drist relies on base
+tools like sed(1), sudo(1)and ssh(1) and aims at being a simple to use and a pluggable
+automation tool.
 
-1. If folder 'files' or 'files-HOSTNAME'  exists, its content is copied to server.
-2. If file 'script' or 'script-HOSTNAME' exists, executed on remote server via ssh(1).
 
-In the previous list, files are copied to or scripts executed on remote server if it's hostname matches 'HOSTNAME' (e.g. a directory called: "files-server.local" would only copy files to a host whos hostname is: "server.local").
+When executed without optional "-F", "-f", "-S" flags, drist will execute the
+following steps from the current working directory:
+
+1. If folder 'files' or 'files-HOSTNAME'  exists, its content is copied to
+   server.
+2. If file 'script' or 'script-HOSTNAME' exists, executed on remote server via
+   ssh(1).
+
+In the previous list, files are copied to or scripts executed on remote server
+if it's hostname matches 'HOSTNAME' (e.g. a directory called:
+"files-server.local" would only copy files to a host whos hostname is:
+"server.local").
 
 If the 'folder' or the 'script' file does not exist, drist will skip it.
 
-drist also supports execution from a different working directory via the use of optional command flags to specify the script or files to be uploaded. See the options and examples sections below.
+drist also supports execution from a different working directory via the use of
+optional command flags to specify the script or files to be uploaded. See the
+options and examples sections below.
+
+## DEPENDENCIES
+
+* sh
+* ssh
+* sudo **
+* tar
+* openssl
+
+** sudo is the only package nec to install:
+
+    pkg query -e '%a = 0' %o | grep sudo
+    security/sudo
 
 ## OPTIONS
--p      Use persistent ssh connection, allowing ssh only once for the different steps.  This uses ControlMaster feature from ssh(1).
 
--d      Truncate reported hostname.  Tells drist to truncate the reported remote hostname to the left-most component.
+| FLAG | DESCRIPTION                                                         |
+|------|---------------------------------------------------------------------|
+| -p   | Use persistent ssh connection, allowing ssh only once for the different steps.  This uses ControlMaster feature from ssh(1).   |
+| -d   | Truncate reported hostname.  Tells drist to truncate the reported remote hostname to the left-most component.
+| -e   | Execute as priviliged command (as root) on the remote server via binary.  Sudo only.
+| -S   | (script) Use a specified script instead of a file called `script` found in local directory.
+| -f   | (directory) Use a specified directory to upload instead of a local directory of `files` directory.
+| -F   | (file) A single file to upload instead of one found in a `files` directory.
+| -x   | Use default secrets file, 'secrets'. This is an encrypted file that will be decrypted as part of this command.
+| -X   | (file) Use the specified secrets file. This is an encrypted file that will be decrypted as part of this command.
+| -T   | (directory) Use the specified directory on the remote
+| destination | Specify the remote servers you want drist to work on. The destination can be a file containing a list of hosts, one per line or it can be addresses passed in the command line. If you specify multiples servers, drist will loop over the list respecting the list order.  Note that only one file can be used in the command line.|
 
--e      [sudo|doas] execute as priviliged command (as root) on the remote server via binary.  Default is `doas`.
+## Secrets
 
--S      (script) Use a specified script instead of a file called `script` found in local directory.
+Command to manually encrypt a plaintext secrets ini file:
 
--f      (directory) Use a specified directory to upload instead of a local directory of `files` directory.
+    openssl enc -base64 -aes-256-cbc -md sha512 -pbkdf2 -iter 1000000 -e -salt -in secrets.ini -out secrets.enc
 
--F      (file) A single file to upload instead of one found in a `files` directory.
+NOTE: secrets file format is KEY=VALUE:
 
-destination     Specify the remote servers you want drist to work on. The destination can be a file containing a list of hosts, one per line or it can be addresses passed in the command line. If you specify multiples servers, drist will loop over the list respecting the list order.  Note that only one file can be used in the command line.
+    server_a=12345&*("
+    server_b=78900abc"
+
+Command to manually decrypt an encrypted secrets ini file:
+
+    openssl enc -base64 -aes-256-cbc -md sha512 -pbkdf2 -iter 1000000 -d -in secrets.enc -out secrets.txt
+
+For drist to automatically decrypt the secrets file, it requires a secrets
+password file. DO NOT check this file into your git repository. The encrypted
+secrets file may be checked into your git repo, but (again) not the password
+file for that secrets file.
+
 
 ## PORTABLE, FRICTIONLESS REMOTE DEPLOYS
 
 drist is built for maximum reach: it only needs a POSIX-compatible
-/bin/sh, an ssh(1) client and tar(1) on the control system. No heavy
+/bin/sh, an ssh(1) client and scp(1) on the control system. No heavy
 runtimes, no daemon to install, no language-specific toolchains — just
 the standard Unix tools that are already on most servers. That means
 you can push scripts and files to systems (Linux, *BSD, minimal
 containers, appliances that include a shell) with one tiny, auditable
 script.
 
-- **Minimal requirements:** POSIX sh(1) + ssh(1) + tar(1)
+- **Minimal requirements:** POSIX sh(1) + ssh(1) + scp(1)
 - **No persistent server-side service:** no need to install or run a
   client/server agent.  
 - **Fast streaming transfers:** streams files over a single ssh(1)

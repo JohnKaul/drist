@@ -4,29 +4,37 @@
 ##
 # drist --
 # A tool to configure and synchronize configurations to, and/or run
-# scrips on remote host(s) via tar(1) and ssh(1).
+# scripts on remote host(s) via scp(1) and ssh(1). Privilege escalation
+# through sudo and an encrypted secrets file.
 #
 # SYNOPSIS
-# drist [-p] [-d] [-e [sudo|doas]] [-S script] [-f files-directory] [-F file-to-copy] destination [...]
+# drist [-p] [-d] [-e] [-S script] [-f files-directory] [-F file-to-copy] destination [...]
 #
 # -----------------------------------------------------------------------------
 # Copyright (c) 2018, Rapenne Solène
 # Copyright (c) 2025, John Kaul
+# Copyright (c) 2026, John Kaul, Todd Greenwood
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-2-Clause
 # -----------------------------------------------------------------------------
 
 # ---[ GLOBALS ]--------------------------------------------------
-PRIVILEGES=0                  # Run with escalated privileges
-PRIVILEGES_BIN=doas           # binary to run privileged command.
-EXEC='exec sh -c'             # posix compliant shell.
-SSHONCE=0                     # set up a socket for persistent connection.
-TRUNCATE=0                    # Remove the domain name from the hostname.
-USE_FILE="script"             # default script file to upload if no optional switches.
-USE_DIR="files"               # default directory to upload if no optional switches.
-SSH_PARAMS=""                 # default ssh parameters.
-COPY_FILE=""                  # default single file to copy.
+COPY_FILE=""                           # default single file to copy.
+CURRENT_SERVER=""                      # current server
+DECRYPTED_FILE_SUFFIX="DELETEME"       # file suffix for decrypted secrets file
+ENC_ITER=1000000
+ESCALATED_PRIVILEGES=0                 # flag for whether escalated privileges are required (1) or not (0)
+EXEC='exec sh -c'                      # POSIX‑compliant shell.
+PRIVILEGES_BIN=""                      # command to run with escalated privileges
+SECRETS_PASSWORD_FILE=""               # openssl password file used to decrypt the secrets file
+SSHONCE=0                              # set up a socket for persistent connection.
+SSH_PARAMS=""                          # default ssh parameters.
+TEMPDIR=".drist_files_XXXXXXXXXXXXXXX" # tempdir created on remote by create_temp
+TRUNCATE=0                             # Remove the domain name from the hostname.
+USE_DIR="files"                        # default directory to upload if no optional switches.
+USE_FILE="script"                      # default script file to upload if no optional switches.
+USE_SECRETS="secrets"                  # default secrets file to use for privilege escalation.
 
 # ---[ HELPERS ]--------------------------------------------------
 ##
@@ -34,139 +42,160 @@ COPY_FILE=""                  # default single file to copy.
 # @brief displays usage information.
 usage() {
     echo "$0 v2.06"
-    echo "$0 [-p] [-d] [-e [sudo|doas]] [-S script-to-run] [-f files-to-copy-directory] [-F single-file-to-copy] destination [...]"
+    echo "$0 [-p] [-d] [-x | [-X secrets-file]] [-e] [-S script-to-run] [-f files-to-copy-directory] [-F single-file-to-copy] [-T tempdir] destination [...]"
     exit 0
 }
 
 ##
-# copy_files --
-# @brief Copy files from a local directory to a remote server.
+# decrypt_secrets --
+# @brief Decrypt secrets file ('./secrets' by default)
 #
 # Parameters:
-#   $1 - source directory (e.g. /path/files-server.local)
-#   $2 - remote server name (e.g. server)
-#   $3 - remote tempdir target (e.g. ~/.drist_files_XXXXXXXXXXXXXXX)
-copy_files() {
-    src_dir=$1
-    remote_server=$2
-    remote_tmp=$3
+#   $1 - secrets file
+decrypt_secrets() {
+    encrypted_secrets_file=$1
 
-    if [ -d "${src_dir}" ]; then
-        # create list file
-        LIST=$(mktemp /tmp/drist-sync.XXXXXXXXXX)
-        if [ -f "$LIST" ]; then
-            # -l = keep symlink / -D = special device
-            find "${src_dir}" -type f -or -type l | sed "s#^${src_dir}/##" > "${LIST}"
-            # basename of source dir (e.g. files-server.local from /path/files-server.local)
-            SRC_BASE=$(basename -- "${src_dir}")
+    decrypted_secrets_file="${encrypted_secrets_file}.${DECRYPTED_FILE_SUFFIX}"
+    openssl enc -base64 -aes-256-cbc -md sha512 -pbkdf2 -iter $ENC_ITER \
+        -d -in "${encrypted_secrets_file}" -out "${decrypted_secrets_file}" \
+        -pass file:${SECRETS_PASSWORD_FILE}
+    if [ "$?" != 0 ]; then
+        echo "secrets decryption failed, aborting."
+        exit 2
+    fi
+}
 
-            # Copy files to remote host.
-            tar cf - -C . . | ssh $SSH_PARAMS "${remote_server}" 'tar xf - -C '"${remote_tmp}"
+##
+# delete_decrypted_secrets --
+# @brief Delete decrypted secrets file (./secrets.DELETEME.DEC, by default)
+#
+# Parameters:
+# $1 - secrets file
+delete_decrypted_secrets_files() {
+    encrypted_secrets_file=$1
+    decrypted_secrets_file="${encrypted_secrets_file}.${DECRYPTED_FILE_SUFFIX}"
+    # Remove decrypted secrets on the local machine
+    rm -f "*.${DECRYPTED_FILE_SUFFIX}"
+    rm -f $decrypted_secrets_file
+}
 
-            # Move files into place.
-            ssh $SSH_PARAMS "${remote_server}" "tar cf - -C "${remote_tmp}"/"$SRC_BASE" . | tar xf - -C \"\$HOME\""
+##
+# extract_privilege_secret --
+# @brief Extract sudo password and store in HOSTNAME-secret.DELETEME.DEC
+#
+# Parameters:
+#   $1 - encrypted secrets file
+#   $2 - key
+#   #3 - remote server temporary directory
+extract_privilege_secret() {
+    encrypted_secrets_file=$1
+    key=$2
+    remote_dir=$3
+    remote_server=$key
 
-            rm "$LIST"
+    decrypted_secrets_file="${encrypted_secrets_file}.${DECRYPTED_FILE_SUFFIX}"
+    decrypted_host_secret_file="${key}-secret.${DECRYPTED_FILE_SUFFIX}"
+
+    if [ -f "${decrypted_secrets_file}" ]; then
+        secret=$(awk -F '=' "/${key}/ {print \$2}" "${decrypted_secrets_file}")
+        if [ "$secret" != "" ]; then
+            echo "secret found for key=${key}"
+            echo "${secret}" >"$decrypted_host_secret_file"
+            scp_single_file "$decrypted_host_secret_file" "$remote_server" "$remote_dir"
+            rm -f "$decrypted_host_secret_file"
+            # ENSURE THE REMOTE SECRET IS DELETED FROM THE REMOTE SERVER!
+        else
+            echo "WARNING: secret NOT found for key=${key} !!!"
         fi
     fi
 }
 
 ##
-# copy_single_file --
+# scp_files --
+# @brief Copy directory to a remote server.
+#
+# Parameters:
+#   $1 - source directory
+#   $2 - remote server name
+#   $3 - remote temporary directory
+scp_files() {
+    src_dir=$1
+    remote_server=$2
+    remote_tmp=$3
+    dir_name=$(basename -- "$src_dir")
+
+    if [ -d "${src_dir}" ]; then
+        ssh $SSH_PARAMS "${remote_server}" "mkdir -p ${remote_tmp}"
+        tar cf - -C . . | ssh $SSH_PARAMS "${remote_server}" 'tar xf - -C '"${remote_tmp}"
+    fi
+    set x
+}
+
+
+##
+# scp_single_file --
 # @brief Copy a single file from a local directory to a remote server.
 #
 # Parameters:
-#   $1 - source file (e.g. /path/upload.file)
-#   $2 - remote server name (e.g. server)
-#   $3 - remote tempdir target (e.g. ~/.drist_files_XXXXXXXXXXXXXXX)
-#
-# NOTE: Even in the case when a sigle file is copied to remote host
-#       if a file/directory is labled with the 'HOSTNAME' string in
-#       the ssame directory as the single file, it will be copied as
-#       well.
-copy_single_file() {
+#   $1 - source file
+#   $2 - remote server name
+#   $3 - remote temporary directory
+scp_single_file() {
     src_file=$1
     remote_server=$2
     remote_tmp=$3
+    file_name=$(basename -- "$src_file")
 
     if [ -f "${src_file}" ]; then
-        # create list file
-        LIST=$(mktemp /tmp/drist-sync.XXXXXXXXXX)
-        # Get the current working directory.
-        if [ -f "$LIST" ]; then
-            # -l = keep symlink / -D = special device
-            find "${src_file}" -type f -or -type l | sed "s#^${src_file}/##" > "${LIST}"
-
-            FILE_NAME=$(basename -- "$src_file")
-
-            # copy file to remote host.
-            tar cf - -C "$(dirname -- "$src_file")" "./${FILE_NAME}" | ssh $SSH_PARAMS "${remote_server}" 'tar xf - -C '"${remote_tmp}"
-
-            # move file into place.
-            ssh $SSH_PARAMS "${remote_server}" "tar cf - -C \"$remote_tmp\" . | tar xf - -C \"\$HOME\""
-            rm "$LIST"
-        fi
+        ssh $SSH_PARAMS "${remote_server}" "mkdir -p ${remote_tmp}"
+        tar cf - -C . . | ssh $SSH_PARAMS "${remote_server}" 'tar xf - -C '"${remote_tmp}"
     fi
 }
 
 ##
 # remote_script --
-# @brief Executes script on remote host.
+# @brief Execute a script on a remote host.
 #
 # Parameters:
-#   $1 - script file (e.g. /path/script)
-#   $2 - remote server name (e.g. server)
-#   $3 - remote tempdir target (e.g. ~/.drist_files_XXXXXXXXXXXXXXX)
+#   $1 - script file
+#   $2 - remote server name
+#   $3 - remote temporary directory
+#   $4 - escalated privileges
 remote_script() {
-    src_dir=$1
+    script_file=$1
     remote_server=$2
     remote_tmp=$3
+    escalated=$4
+    FILE=$(basename -- "$script_file"})
 
-    if [ -f "${src_dir}" ]; then
-        FILE=$(basename ${USE_FILE})
-        ssh $SSH_PARAMS "${remote_server}" "cd ${remote_tmp} && \
-            cat - > ${remote_tmp}/${FILE} && \
-            chmod u+x ${remote_tmp}/${FILE} && \
-            ${EXEC} ${remote_tmp}/${FILE}" < "$src_dir"
+    if [ -f "${script_file}" ]; then
+        if [ $escalated = 0 ]; then
+            COMMAND="${EXEC}"
+        else
+            COMMAND="${PRIVILEGES_BIN}"
+        fi
+        ssh $SSH_PARAMS "${remote_server}" "
+            cd \"${remote_tmp}\" && \
+            cat - > \"${FILE}\" && \
+            chmod +x \"${FILE}\" && \
+            ${COMMAND} \"./${FILE}\"" <"$script_file"
     fi
 }
 
-##
-# create_temp --
-# @brief Creates temporary directory on remote host.
-#
-# Parameters:
-#   $1 - remote server name (e.g. server)
-create_temp() {
-    remote_server=$1
-
-    TEMPDIR=$(ssh $SSH_PARAMS "${remote_server}" "mktemp -d ~/.drist_files_XXXXXXXXXXXXXXX")
-    if [ "$TEMPDIR" = "" ]; then
-        echo "mktemp error, aborting"
-        exit 1
-    fi
-}
-
-##
 # delete_temp --
 # @brief Deletes temporary directory on remote host.
 #
 # Parameters:
-#   $1 - remote server name (e.g. server)
-#   $2 - remote tempdir target (e.g. ~/.drist_files_XXXXXXXXXXXXXXX)
+#   $1 - remote server name
+#   $2 - remote temporary directory
 delete_temp() {
     remote_server=$1
     remote_tmp=$2
 
-    # The following is a debug print.
-    if echo "${2}" | grep drist_files_ >/dev/null ; then
-        ssh $SSH_PARAMS "$remote_server" "rm -fr ${remote_tmp}"
-    else
-        echo "Problem, TEMPDIR was reset during execution, current value is = $remote_tmp"
-        exit 2
+    if [ "${remote_tmp}" != "" ]; then
+        ssh $SSH_PARAMS "$remote_server" "rm -rf ${remote_tmp}"
     fi
 }
-
 
 # ---[ ARGUMENT PARSER ]------------------------------------------
 # (custom getopt() like argument parser)
@@ -178,116 +207,161 @@ if [ $# -lt 1 ]; then echo "Not enough arguments."; fi
 done_options=
 
 ##
-# @brief check to see if there are more arguments to parse.
+# more_options --
+# @brief Check whether there are more options left to parse.
 #
-# @return 1 if done 0 if more args.
+# Returns:
+#   0 if there are more options, 1 otherwise.
 more_options() {
     test $done_options && return 1
     [ $# -eq 0 ] && return 1
     case "$1" in
-        --) return 1 ;;   # stop options
-        -*) return 0 ;;
-        *) return 1 ;;
+    --) return 1 ;; # end of options
+    -*) return 0 ;; # still an option
+    *) return 1 ;;  # non‑option argument
     esac
 }
 
-# parse arguments.
-while more_options "$1"
-do
+# -------------------------------------------------------------------------
+# Parse command‑line arguments.
+# -------------------------------------------------------------------------
+while more_options "$1"; do
     case "$1" in
-        --)
-            done_options=1
-            shift
-            break
-            ;;
-        -h*)                                            # Help
-            usage
-            ;;
-        -d)                                             # truncate hostname
-            TRUNCATE=1
-            ;;
-        -p)                                             # persistent ssh
-            SSHONCE=1
-            ;;
-        -S)                                             # script file to run
-            [ $# -gt 1 ] || usage "-S requires a script name"
-            shift
-            USE_FILE="$1"
-            ;;
-        -f)                                             # directory of files to upload
-            [ $# -gt 1 ] || usage "-f requires a directory location"
-            shift
-            USE_DIR="$1"
-            ;;
-        -F)                                             # file to upload
-            [ $# -gt 1 ] || usage "-F requires a file name"
-            shift
-            COPY_FILE="$1"
-            ;;
-        -e*)                                            # elevate permissions.
-            if [ $# -gt 1 ] && case "$2" in -*) false;; *) true;; esac; then
-                shift
-                PRIVILEGES_BIN="${1#-e}"
-            fi
-            PRIVILEGES=1
-            ;;
-        -*)
-            usage "unknown option $1"
-            ;;
+    --)
+        done_options=1
+        shift
+        break
+        ;;
+    -h*) # Help
+        usage
+        ;;
+    -d) # Truncate hostname
+        TRUNCATE=1
+        ;;
+    -p) # Persistent SSH
+        SSHONCE=1
+        ;;
+    -e) # elevate permissions.
+        ESCALATED_PRIVILEGES=1
+        ;;
+    -x) # use secrets, will default to "./secrets" unless overridden by -X to specify a secrets file
+        SECRETS=1
+        ;;
+    -S) # Script file to run
+        [ $# -gt 1 ] || usage "-S requires a script name"
+        shift
+        USE_FILE="$1"
+        ;;
+    -f) # Directory of files to upload
+        [ $# -gt 1 ] || usage "-f requires a directory location"
+        shift
+        USE_DIR="$1"
+        ;;
+    -F) # Single file to upload
+        [ $# -gt 1 ] || usage "-F requires a file name"
+        shift
+        COPY_FILE="$1"
+        ;;
+    -T) # Temp dir (local and remote) – not implemented yet
+        [ $# -gt 1 ] || usage "-T requires a directory name"
+        shift
+        TEMPDIR="$1"
+        ;;
+    -X) # use a custom secrets file
+        [ $# -gt 1 ] || usage "-X requires a secrets file name"
+        shift
+        USE_SECRETS="$1"
+        SECRETS=1
+        ;;
+    -Q) # use a custom secrets password file
+        [ $# -gt 1 ] || usage "-Q requires a secrets password file name"
+        shift
+        SECRETS_PASSWORD_FILE="$1"
+        ;;
+    -*)
+        usage "unknown option $1"
+        ;;
     esac
     shift
 done
 
 # ---[ RUNTIME ]--------------------------------------------------
-# allow to use a privilege escalation program
-if [ "$PRIVILEGES" -eq 1 ]; then
-    EXEC="$PRIVILEGES_BIN"
+# Validate parameters for privilege escalation
+if [ $ESCALATED_PRIVILEGES = 1 ]; then
+    # verify that the secrets file exists
+    if [ ! -f "$USE_FILE" ]; then
+        echo "escalated privileges requested, but no secrets file found. Expected $USE_FILE."
+        exit 1
+    fi
+    # verify that the secrets password file exists
+    if [ ! -f "$SECRETS_PASSWORD_FILE" ]; then
+        echo "escalated privileges requested, but no secrets password file found. Expected $SECRETS_PASSWORD_FILE."
+        exit 1
+    fi
+    echo "commands will run with escalated privileges"
+else
+    echo "commands will run without escalated privileges"
 fi
 
-# use ControlMaster to make connections persistent
+# Use ControlMaster to make connections persistent
 if [ "$SSHONCE" -eq 1 ]; then
-   SSH_PARAMS='-o ControlMaster=auto -o ControlPath=/tmp/drist_ssh_%h_%p_%r.sock -o ControlPersist=1m'
+    SSH_PARAMS='-o ControlMaster=auto -o ControlPath=/tmp/drist_ssh_%h_%p_%r.sock -o ControlPersist=1m'
 fi
 
-# start looping over server list
+# Determine the list of servers
 if [ -f "$1" ]; then
-    SERVER_LIST="$(tr '\n' ' ' < $1)"
+    SERVER_LIST="$(tr '\n' ' ' <"$1")"
 else
     SERVER_LIST="$@"
 fi
 
-if [ "${SERVER_LIST}" = "" ]; then
+if [ -z "${SERVER_LIST}" ]; then
     echo "No server specified"
     exit 1
 fi
 
-for remote_server in ${SERVER_LIST}
-do
+# -------------------------------------------------------------------------
+# Main loop – process each remote server
+# -------------------------------------------------------------------------
+for remote_server in ${SERVER_LIST}; do
+    # Verify that the host is reachable
+    HOSTNAME=$(ssh $SSH_PARAMS "${remote_server}" "uname -n")
+    if [ $? -ne 0 ]; then
+        echo "Error while ssh ${remote_server}"
+        exit 2
+    fi
 
-  # check if host exists
-  HOSTNAME=$(ssh $SSH_PARAMS "$remote_server" "uname -n")
-  if [ "$?" -ne 0 ]; then
-      echo "Error while ssh ${remote_server}"
-      exit 2
-  fi
+    # Optionally strip the domain part
+    if [ "$TRUNCATE" -eq 1 ]; then
+        HOSTNAME="${HOSTNAME%%.*}"
+    fi
 
-  if [ "$TRUNCATE" -eq 1 ]; then
-      HOSTNAME="${HOSTNAME%%.*}"
-  fi
+    # -------------------------------------------------------------
+    # Privilege / secret handling
+    # -------------------------------------------------------------
+    if [ $ESCALATED_PRIVILEGES = 1 ]; then
+        # Update the sudo command with the account password so permissions can be elevated
+        decrypt_secrets "${USE_SECRETS}"
+        extract_privilege_secret "${USE_SECRETS}" "${HOSTNAME}" "${TEMPDIR}"
+        PRIVILEGES_BIN="sudo -S < ~/${TEMPDIR}/${remote_server}-secret.${DECRYPTED_FILE_SUFFIX} sh "
+    fi
 
-  create_temp "${remote_server}"
-  copy_files "${USE_DIR}" "${remote_server}" "$TEMPDIR"
-  copy_files "${USE_DIR}-${HOSTNAME}" "${remote_server}" "$TEMPDIR"
-  copy_single_file "${COPY_FILE}" "${remote_server}" "$TEMPDIR"
-  copy_single_file "${COPY_FILE}-${HOSTNAME}" "${remote_server}" "$TEMPDIR"
-  remote_script "${USE_FILE}" "${remote_server}" "$TEMPDIR"
-  remote_script "${USE_FILE}-${HOSTNAME}" "${remote_server}" "$TEMPDIR"
-  delete_temp "${remote_server}" "$TEMPDIR"
+    # Upload directories/files
+    scp_files "${USE_DIR}" "${remote_server}" "$TEMPDIR"
+    scp_files "${USE_DIR}-${HOSTNAME}" "${remote_server}" "$TEMPDIR"
+    scp_single_file "${COPY_FILE}" "${remote_server}" "$TEMPDIR"
+    scp_single_file "${COPY_FILE}-${HOSTNAME}" "${remote_server}" "$TEMPDIR"
+    # Run the remote script(s)
+    remote_script "${USE_FILE}" "${remote_server}" "$TEMPDIR" ${ESCALATED_PRIVILEGES}
+    remote_script "${USE_FILE}-${HOSTNAME}" "${remote_server}" "$TEMPDIR" ${ESCALATED_PRIVILEGES}
+    # Clean‑up
+    delete_temp "${remote_server}" "$TEMPDIR"
+    delete_decrypted_secrets_files "${USE_SECRETS}"
 
-  # close socket if persistence is active
-  if [ "$SSHONCE" -eq 1 ]; then
-      ssh $SSH_PARAMS -O exit -N "$1"
-  fi
+    # Close the persistent socket if we opened one
+    if [ "$SSHONCE" -eq 1 ]; then
+        ssh $SSH_PARAMS -O exit -N "${remote_server}"
+    fi
 
-  unset TEMPDIR HOSTNAME
+    unset TEMPDIR HOSTNAME
 done
