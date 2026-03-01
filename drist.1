@@ -1,7 +1,7 @@
 .\" Copyright (c) 2018, Rapenne Solène
 .\" Copyright (c) 2025, John Kaul
 .\" SPDX-License-Identifier: BSD-2-Clause
-.Dd Dec 23 2025
+.Dd Mar 01 2026
 .Dt drist 1
 .Os
 .Au John Kaul
@@ -11,155 +11,172 @@
 .Nd dumb remote installer shell tool, a remote deployment tool.
 .Pp
 .Sh SYNOPSIS
-drist [-p] [-d] [-e [sudo|doas]] [-S script] [-f files-directory] [-F file-to-copy] destination [...]
+.Nm
+[-p] [-d] [-e [sudo|doas|su]] [-S script] [-f files-directory] [-F file-to-copy] destination [...]
 .Pp
 .Sh OPTIONS
 .Bl -tag -width Ds
 .It Fl p
-Use persistent ssh connection, allowing ssh only once for the
-different steps.  This uses ControlMaster feature from 
-.Xr ssh(1)
-.
+Use persistent ssh connection, allowing ssh only once for the different steps.  This uses ControlMaster feature from 
+.Xr ssh 1 .
 .Pp
 .It Fl d
-Truncate reported hostname.  Tells drist to truncate the reported
-remote hostname to the left-most component.
+Truncate reported hostname. Tells 
+.Nm
+to truncate the reported remote hostname to the left-most component.
 .Pp
-.It Fl e Ar sudo|doas
-Binary to use for executing the commands as root (sudo|doas).
-Default: 
-.Xr doas(1)
+.It Fl e Ar sudo|doas|su
+Binary to use for executing the commands as root (sudo|doas|su).  Default: 
+.Xr doas 1 
 .Pp
 .It Fl S Ar script
 Use a specified script instead of a file called 
-.Li script
-found in
-local directory.
+.Cm script
+found in local directory.
 .Pp
 .It Fl f Ar directory
-Use a specified directory to upload instead of a local directory
-of 
-.Li files
+Use a specified directory to upload instead of a local directory of 
+.Cm files
 directory.
 .Pp
 .It Fl F Ar file
 A single file to upload instead of one found in a 
-.Li files
+.Cm files
 directory.
 .Pp
 .It destination
-Specify the remote servers you want drist to work on. The destination
-can be a file containing a list of hosts, one per line or it can be
-addresses passed in the command line.  If you specify multiples
-servers, drist will loop over the list respecting the list order.
-Note that only one file can be used in the command line.
+Specify the remote servers you want 
+.Nm
+to work on. The destination can be a file containing a list of hosts, one per line or it can be addresses passed in the command line. If you specify multiples servers, 
+.Nm
+will loop over the list respecting the list order. Note that only one file can be used in the command line.
 .Pp
 .El
 .Pp
 .Sh DESCRIPTION
-
-.Li drist
+.Nm
 is a tool to configure remote servers using 
-.Xr ssh(1)
-and
-
-.Xr tar(1)
+.Xr ssh 1  
+and 
+.Xr tar 1  
 by uploading files and executing scripts.
 .Pp
-
-.Li drist
+.Nm
 will upload files via a 
-.Xr tar(1)
+.Xr tar 1  
 pipeline through 
-.Xr ssh(1)
-and
-execute scripts on remote hosts via 
-.Xr ssh(1)
-in a POSIX compliant
-shell.
+.Xr ssh 1  
+and execute scripts on remote hosts via 
+.Xr ssh 1  
+in a POSIX compliant shell.
 .Pp
-When run without 'f', 'F', or 'S' optional switches, drist will
-look for a directory called "files" and/or a script called
-"script" in the current working directory.
+When run without 
+.Cm -f
+, 
+.Cm -F
+, or 
+.Cm -S
+optional switches, 
+.Nm
+will look for a directory called 
+.Cm files
+and/or a script called 
+.Cm script
+in the current working directory.
 .Pp
-- If the current working directory contains a directory called
-either: 'files' or 'files-HOSTNAME' its contents are copied to the
-suppled 'destination'.
+.Bl -dash -compact
+.It
+If the current working directory contains a directory called either: @files or @files-HOSTNAME its contents are copied to the suppled 'destination'.
 .Pp
-- If the current working directory contains a file called either: 'scrpt'
-or 'script-HOSTNAME' it is copied to, and executed on,
-'destination' via a POSIX shell.
+.It
+If the current working directory contains a file called either: @script or @script-HOSTNAME it is copied to, and executed on, the 'destination' via a POSIX shell.
 .Pp
-
+.El
+.Pp
 .Em NOTE
-The 'HOSTNAME' string in: 'files-HOSTNAME' and 'sript-HOSTNAME',
-files are placeholder values. drist will connect to server via
-
-.Xr ssh(1)
-and request the remote HOSTNAME by calling 'uname -n' and
-if it matches the 'HOSTNAME' in the directory/file name's their
-contents will be uploaded and/or executed on the remote host (e.g.
-a directory called: "files-server.local" would only copy files to
-a host who's hostname is: "server.local"). These file are also
-considered as important so, even in the case where a single file
-(-F) or a single script (-S) are used, if a 'files-HOSTNMAE'
-and/or 'script-HOSTNAME' are also present in the same directory as
-the -F or -S files, they will also be copied/executed.
+The 'HOSTNAME' string in: 
+.Cm files-HOSTNAME
+and 
+.Cm sript-HOSTNAME
+, files are placeholder values. 
+.Nm
+will connect to server via 
+.Xr ssh 1  
+and request the remote 'HOSTNAME' by calling 'uname -n' and if it matches the 'HOSTNAME' in the directory/file name's their contents will be uploaded and/or executed on the remote host (e.g.  a directory called: "files-server.local" would only copy files to a host who's hostname is: "server.local"). These file are also considered as important so, even in the case where a single file (
+.Cm -F
+) or a single script (
+.Cm -S
+) are used, if a 
+.Cm files-HOSTNMAE
+and/or 
+.Cm script-HOSTNAME
+are also present in the same directory as the 
+.Cm -F
+or 
+.Cm -S
+files, they will also be copied/executed.
 .Pp
-drist treats the different filetypes ("files" & "script")
-differently, in that the "files" are considered permanent
-additions to the remote host and the "script" is considered a
-temporary item. Both file types are uploaded to the remote host
-into a temporary directory (e.g. ~/.drist_files_XXXXXXXX), but the
-"files" are moved relative to the remote user's $HOME directory.
-The "script" file is executed relative to the temporary directory
-and delted upon execution (i.e. not moved before execution). See
-the example section below.
+.Nm
+treats the different filetypes (
+.Cm files
+& 
+.Cm script
+) differently, in that the 
+.Cm files
+are considered permanent additions to the remote host and the 
+.Cm script
+is considered a temporary item. Both file types are uploaded to the remote host into a temporary directory (e.g. ~/.drist_files_XXXXXXXX), but the 
+.Cm files
+are moved relative to the remote user's $HOME directory.  The 
+.Cm script
+file is executed relative to the temporary directory and delted upon execution (i.e. not moved before execution). See the example section below.
 .Pp
-Because permissions can differ from local to remote, drist adopts
-ownership/permissions as seen on the remote side by extracting
-"files" as the remote user.
+Because permissions can differ from local to remote, 
+.Nm
+adopts ownership/permissions as seen on the remote side by extracting 
+.Cm files
+as the remote user.
 .Pp
 .Pp
 .Pp
 .Sh EXAMPLES
-The following examples demonstrate usage with the optional file and
-directory specifier flags for clarity.
+The following examples demonstrate usage with the optional file (
+.Cm -S
+) and directory (
+.Cm -F
+) specifier flags for clarity.
 .Pp
 Execute a script ("setup.sh") on the ACME host.
 .Bd -literal -offset indent
-    # drist -S /place/where/scripts/reside/setup.sh ACME
+    % drist -S /place/where/scripts/reside/setup.sh ACME
 .Ed
 .Pp
 Execute a script ("setup.sh") on the ACME host using elevated permissions with 
-.Li doas
-.
+.Xr doas 1 .
 .Bd -literal -offset indent
-    # drist -e -S /place/where/scripts/reside/setup.sh ACME
+    % drist -e -S /place/where/scripts/reside/setup.sh ACME
 .Ed
 .Pp
 Execute a script ("setup.sh") on the ACME host using elevated permissions with 
-.Li sudo
-.
+.Xr sudo 1 .
 .Bd -literal -offset indent
-   # drist -e sudo -S /place/where/scripts/reside/setup.sh ACME
+    % drist -e sudo -S /place/where/scripts/reside/setup.sh ACME
 .Ed
 .Pp
 Execute a script ("setup.sh") on the ACME host using elevated permissions with 
-.Li su
-.
+.Xr su 1 .
 .Bd -literal -offset indent
-   # drist -e 'su - root' -S /place/where/scripts/reside/setup.sh ACME
+    % drist -e 'su - root' -S /place/where/scripts/reside/setup.sh ACME
 .Ed
 .Pp
 Upload a file ("upload.file") to the ACME host.
 .Bd -literal -offset indent
-    # drist -F /place/where/files/reside/upload.file ACME
+    % drist -F /place/where/files/reside/upload.file ACME
 .Ed
 .Pp
 Upload all files in a directory to the ACME host.
 .Bd -literal -offset indent
-    # drist -f /place/where/files/reside/ ACME
+    % drist -f /place/where/files/reside/ ACME
 .Ed
 .Pp
 Example script, executed on remote host ACME, demonstrating how to reference a file uploaded to remote host.
@@ -173,24 +190,23 @@ Script contents:
 .Pp
 Upload comand:
 .Bd -literal -offset indent
-    # drist -S /place/where/script/resides/script -F /place/where/files/reside/upload.file ACME
+    % drist -S /place/where/script/resides/script -F /place/where/files/reside/upload.file ACME
 .Ed
 .Pp
 .Sh EXIT
-The drist utility exits 0 on success, and >0 if an error occurs.
+The 
+.Nm
+utility exits 0 on success, and >0 if an error occurs.
 .Pp
 .Sh SEE ALSO
-
-.Xr tar(1)
-, 
-.Xr ssh(1)
-, 
-.Xr ssh_config(5)
+.Xr tar 1 , 
+.Xr ssh 1 , 
+.Xr ssh_config 5 
 .Pp
 .Sh HISTORY
-Originally created by Solène Rapenne <solene@perso.pw>
+    Originally created by Solène Rapenne <solene@perso.pw>
 .Pp
-(The original drist is located:
-https://dataswamp.org/~solene/page-drist-official-website.html)
+    (The original drist is located:
+    https://dataswamp.org/~solene/page-drist-official-website.html)
 .Pp
-Updated by John Kaul.
+    Updated by John Kaul.
