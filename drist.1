@@ -6,15 +6,22 @@
 .Os
 .Au John Kaul
 .Pp
-.Sh NAME
+.Sh NAME 
 .Nm drist 
 .Nd dumb remote installer shell tool, a remote deployment tool.
 .Pp
-.Sh SYNOPSIS
+.Sh SYNOPSIS 
 .Nm
-[-p] [-d] [-e [sudo|doas|su]] [-S script] [-f files-directory] [-F file-to-copy] destination [...]
+.Op Fl p
+.Op Fl d
+.Op Fl e Ar [sudo|doas|su]
+.Op Fl S Ar script
+.Op Fl f Ar files-directory
+.Op Fl F Ar file-to-copy
+remotetarget
+.Op Ar ...
 .Pp
-.Sh OPTIONS
+.Sh OPTIONS 
 .Bl -tag -width Ds
 .It Fl p
 Use persistent ssh connection, allowing ssh only once for the different steps.  This uses ControlMaster feature from 
@@ -25,7 +32,7 @@ Truncate reported hostname. Tells
 .Nm
 to truncate the reported remote hostname to the left-most component.
 .Pp
-.It Fl e Ar sudo|doas|su
+.It Fl e Ar [sudo|doas|su]
 Binary to use for executing the commands as root (sudo|doas|su).  Default: 
 .Xr doas 1 
 .Pp
@@ -44,7 +51,7 @@ A single file to upload instead of one found in a
 .Cm files
 directory.
 .Pp
-.It destination
+.It remotetarget
 Specify the remote servers you want 
 .Nm
 to work on. The destination can be a file containing a list of hosts, one per line or it can be addresses passed in the command line. If you specify multiples servers, 
@@ -53,7 +60,7 @@ will loop over the list respecting the list order. Note that only one file can b
 .Pp
 .El
 .Pp
-.Sh DESCRIPTION
+.Sh DESCRIPTION 
 .Nm
 is a tool to configure remote servers using 
 .Xr ssh 1  
@@ -86,11 +93,19 @@ in the current working directory.
 .Pp
 .Bl -dash -compact
 .It
-If the current working directory contains a directory called either: @files or @files-HOSTNAME its contents are copied to the suppled 'destination'.
-.Pp
+If the current working directory contains a directory called either:
+.Cm files
+or 
+.Cm files-HOSTNAME
+its contents are copied to the suppled
+'destination'.
 .It
-If the current working directory contains a file called either: @script or @script-HOSTNAME it is copied to, and executed on, the 'destination' via a POSIX shell.
-.Pp
+If the current working directory contains a file called either:
+.Cm script
+or 
+.Cm script-HOSTNAME
+it is copied to, and executed on, the
+'destination' via a POSIX shell.
 .El
 .Pp
 .Em NOTE
@@ -139,7 +154,7 @@ as the remote user.
 .Pp
 .Pp
 .Pp
-.Sh EXAMPLES
+.Sh EXAMPLES 
 The following examples demonstrate usage with the optional file (
 .Cm -S
 ) and directory (
@@ -193,20 +208,20 @@ Upload comand:
     % drist -S /place/where/script/resides/script -F /place/where/files/reside/upload.file ACME
 .Ed
 .Pp
-.Sh EXIT
+.Sh EXIT 
 The 
 .Nm
 utility exits 0 on success, and >0 if an error occurs.
 .Pp
-.Sh SEE ALSO
+.Sh SEE ALSO 
 .Xr tar 1 , 
 .Xr ssh 1 , 
 .Xr ssh_config 5 
 .Pp
-.Sh HISTORY
-    Originally created by Solène Rapenne <solene@perso.pw>
+.Sh HISTORY 
+Originally created by Solène Rapenne <solene@perso.pw>
 .Pp
-    (The original drist is located:
-    https://dataswamp.org/~solene/page-drist-official-website.html)
+(The original drist is located:
+https://dataswamp.org/~solene/page-drist-official-website.html)
 .Pp
-    Updated by John Kaul.
+Updated by John Kaul.
