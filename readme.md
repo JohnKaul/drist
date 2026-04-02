@@ -2,6 +2,8 @@
 
 *_NOTE_*: This is a fork of the origional drist. See the [HISTORY](#history) section below.
 
+*_NOTE_*: This software is not intended for human use -- self-enforcing agreement.
+
 ## BRIEF
 drist is a tool to configure and synchronize configurations to, and/or run scrips on remote host(s) via ssh(1).
 
@@ -77,8 +79,8 @@ To change the default install locations the included "configure"
 script can be used.
 
 ```sh
-    # ./configure --preflix=/location/to/instal/to
-    # ./configure --mandi=/location/for/man/pages
+    # ./configure --prefix=/location/to/instal/to
+    # ./configure --mandir=/location/for/man/pages
  ```
 
 ## EXAMPLES
