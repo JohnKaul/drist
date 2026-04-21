@@ -1,10 +1,10 @@
 hello world (root) --
 
-This example consists of a file and a script which can be copied up to remote host via drist with elevated privilages.
+This example consists of a file and a script which can be copied up to remote host via drist with elevated privileges.
 
 Option 1 (while inside the `hello_world_root` directory):
 
-        # drsit -e ACME
+        # drist -e ACME
 
 Option 2 (from outside the `hello world_root` directory):
 

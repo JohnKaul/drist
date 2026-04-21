@@ -47,18 +47,18 @@ usage() {
 #   $2 - remote server name (e.g. server)
 #   $3 - remote tempdir target (e.g. ~/.drist_files_XXXXXXXXXXXXXXX)
 copy_files() {
-    src_dir=$1
+    script_file=$1
     remote_server=$2
     remote_tmp=$3
 
-    if [ -d "${src_dir}" ]; then
+    if [ -d "${script_file}" ]; then
         # create list file
         LIST=$(mktemp /tmp/drist-sync.XXXXXXXXXX)
         if [ -f "$LIST" ]; then
             # -l = keep symlink / -D = special device
-            find "${src_dir}" -type f -or -type l | sed "s#^${src_dir}/##" > "${LIST}"
+            find "${script_file}" -type f -or -type l | sed "s#^${script_file}/##" > "${LIST}"
             # basename of source dir (e.g. files-server.local from /path/files-server.local)
-            SRC_BASE=$(basename -- "${src_dir}")
+            SRC_BASE=$(basename -- "${script_file}")
 
             # Copy files to remote host.
             tar cf - -C . . | ssh $SSH_PARAMS "${remote_server}" 'tar xf - -C '"${remote_tmp}"
@@ -118,16 +118,16 @@ copy_single_file() {
 #   $2 - remote server name (e.g. server)
 #   $3 - remote tempdir target (e.g. ~/.drist_files_XXXXXXXXXXXXXXX)
 remote_script() {
-    src_dir=$1
+    script_file=$1
     remote_server=$2
     remote_tmp=$3
 
-    if [ -f "${src_dir}" ]; then
+    if [ -f "${script_file}" ]; then
         FILE=$(basename ${USE_FILE})
         ssh $SSH_PARAMS "${remote_server}" "cd ${remote_tmp} && \
             cat - > ${remote_tmp}/${FILE} && \
             chmod u+x ${remote_tmp}/${FILE} && \
-            ${EXEC} ${remote_tmp}/${FILE}" < "$src_dir"
+            ${EXEC} ${remote_tmp}/${FILE}" < "$script_file"
     fi
 }
 

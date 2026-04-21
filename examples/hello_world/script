@@ -21,7 +21,7 @@ read_testfile() {
 # Call `main()`
 main "$@"
 
-# Read `test.drist` file if copied up and delete (leave the endusers machine as we found it).
+# Read `test.drist` file if copied up and delete (leave the end users machine as we found it).
 if [ -f "$HOME/test.drist" ]; then
     echo "I have found the file: \"$HOME/test.drist\"."
     echo "Below are the contents:"
