@@ -3,8 +3,8 @@
 .POSIX:
 
 BIN    = drist
-PREFIX ?= /usr/local/bin
-MANDIR ?= /usr/local/share/man/man1
+PREFIX		:=	/usr/local/bin
+MANDIR	        :=	/usr/local/share/man/man1
 
 all:
 
