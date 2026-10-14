@@ -1,6 +1,6 @@
 # drist
 
-*_NOTE_*: This is a fork of the origional drist. See the [HISTORY](#history) section below.
+*_NOTE_*: This is a fork of the original drist. See the [HISTORY](#history) section below.
 
 *_NOTE_*: This software is not intended for human use -- self-enforcing agreement.
 
@@ -18,7 +18,7 @@ When executed without optional "-F", "-f", "-S" flags, drist will execute the fo
 1. If folder 'files' or 'files-HOSTNAME'  exists, its content is copied to server.
 2. If file 'script' or 'script-HOSTNAME' exists, executed on remote server via ssh(1).
 
-In the previous list, files are copied to or scripts executed on remote server if it's hostname matches 'HOSTNAME' (e.g. a directory called: "files-server.local" would only copy files to a host whos hostname is: "server.local").
+In the previous list, files are copied to or scripts executed on remote server if it's hostname matches 'HOSTNAME' (e.g. a directory called: "files-server.local" would only copy files to a host who's hostname is: "server.local").
 
 If the 'folder' or the 'script' file does not exist, drist will skip it.
 
@@ -29,7 +29,7 @@ drist also supports execution from a different working directory via the use of 
 
 -d      Truncate reported hostname.  Tells drist to truncate the reported remote hostname to the left-most component.
 
--e      [sudo|doas] execute as priviliged command (as root) on the remote server via binary.  Default is `doas`.
+-e      [sudo|doas] execute as privileged command (as root) on the remote server via binary.  Default is `doas`.
 
 -S      (script) Use a specified script instead of a file called `script` found in local directory.
 
@@ -39,11 +39,11 @@ drist also supports execution from a different working directory via the use of 
 
 destination     Specify the remote servers you want drist to work on. The destination can be a file containing a list of hosts, one per line or it can be addresses passed in the command line. If you specify multiples servers, drist will loop over the list respecting the list order.  Note that only one file can be used in the command line.
 
-## PORTABLE, FRICTIONLESS REMOTE DEPLOYS
+## PORTABLE, FRICTION-LESS REMOTE DEPLOYS
 
 drist is built for maximum reach: it only needs a POSIX-compatible
 /bin/sh, an ssh(1) client and tar(1) on the control system. No heavy
-runtimes, no daemon to install, no language-specific toolchains — just
+run-times, no daemon to install, no language-specific tool chains — just
 the standard Unix tools that are already on most servers. That means
 you can push scripts and files to systems (Linux, *BSD, minimal
 containers, appliances that include a shell) with one tiny, auditable
@@ -66,7 +66,7 @@ script.
   heavyweight tooling can’t.
 
 Use drist when you want a small, dependable tool that just works with
-the ubiquitous Unix toolset.
+the ubiquitous Unix tool set.
 
 ## BUILD
 default install location: /usr/local/bin
@@ -116,4 +116,4 @@ Upload all files in a directory to the ACME host.
 The original drist is located: 
 https://dataswamp.org/~solene/page-drist-official-website.html
 
-- Updated by John Kaul. Please see the [CHANGELOG](CHANGELOG) for updates.
+- Updated by John Kaul. Please see the [CHANGE LOG](CHANGELOG) for updates.
