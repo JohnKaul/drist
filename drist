@@ -1,7 +1,6 @@
 #!/bin/sh
 # vim: ts=4: shiftwidth=4:
-
-##
+#
 # drist --
 # A tool to configure and synchronize configurations to, and/or run
 # scrips on remote host(s) via tar(1) and ssh(1).
@@ -12,6 +11,7 @@
 # -----------------------------------------------------------------------------
 # Copyright (c) 2018, Rapenne Solène
 # Copyright (c) 2025, John Kaul
+# Copyright (c) 2026, Todd Greenwood
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-2-Clause
@@ -21,21 +21,35 @@
 PRIVILEGES=0                  # Run with escalated privileges
 PRIVILEGES_BIN=doas           # binary to run privileged command.
 EXEC='exec sh -c'             # posix compliant shell.
+TAR_EXEC=""                   # short exec when elevating permissions for tar commands, same as EXEC, except that defaults to ""
 SSHONCE=0                     # set up a socket for persistent connection.
 TRUNCATE=0                    # Remove the domain name from the hostname.
 USE_FILE="script"             # default script file to upload if no optional switches.
 USE_DIR="files"               # default directory to upload if no optional switches.
 SSH_PARAMS=""                 # default ssh parameters.
 COPY_FILE=""                  # default single file to copy.
+TEMPDIR=""                    # assigned to in the create_temp() function
+DEBUG=false                   # true or false
+COPY_ROOT_DIR='$HOME'         # root directory to copy files to, defaults to $HOME
+COPIED_FILE=""                # file copied to $COPY_ROOT_DIR/filename
+COPIED_DIR=""                 # dir copied to $COPY_ROOT_DIR/directory
+DELETE_COPIED_FILES=false     # delete the copied files/directories
+NO_COPY=false                 # do not copy the file/directory from the remote temp dir to the remote copy_root_dir
 
 # ---[ HELPERS ]--------------------------------------------------
 ##
 # usage --
 # @brief displays usage information.
 usage() {
-    echo "$0 v2.06"
+    echo "$0 v2.09"
     echo "$0 [-p] [-d] [-e [sudo|doas]] [-S script-to-run] [-f files-to-copy-directory] [-F single-file-to-copy] destination [...]"
     exit 0
+}
+
+debug(){
+    if [ "$DEBUG" = true ]; then
+        echo "[DEBUG] $@"
+    fi
 }
 
 ##
@@ -43,32 +57,39 @@ usage() {
 # @brief Copy files from a local directory to a remote server.
 #
 # Parameters:
-#   $1 - source directory (e.g. /path/files-server.local)
+#   $1 - source directory (e.g. /local/path/to/upload/directory)
 #   $2 - remote server name (e.g. server)
 #   $3 - remote tempdir target (e.g. ~/.drist_files_XXXXXXXXXXXXXXX)
 copy_files() {
-    script_file=$1
+    src_dir=$1
     remote_server=$2
     remote_tmp=$3
 
-    if [ -d "${script_file}" ]; then
-        # create list file
-        LIST=$(mktemp /tmp/drist-sync.XXXXXXXXXX)
-        if [ -f "$LIST" ]; then
-            # -l = keep symlink / -D = special device
-            find "${script_file}" -type f -or -type l | sed "s#^${script_file}/##" > "${LIST}"
-            # basename of source dir (e.g. files-server.local from /path/files-server.local)
-            SRC_BASE=$(basename -- "${script_file}")
+    if [ -d "${src_dir}" ]; then
+        if [ -z "${remote_server}" ]; then
+            echo "remote_server is blank, exiting"
+            exit 1
+        fi
+        if [ -z "${remote_tmp}" ]; then
+            echo "remote_tmp is blank, exiting"
+            exit 2
+        fi
+            
+        # basename of source dir (e.g. files-server.local from /local/path/to/upload/directory)
+        src_base=$(basename -- "${src_dir}")
 
-            # Copy files to remote host.
-            tar cf - -C . . | ssh $SSH_PARAMS "${remote_server}" 'tar xf - -C '"${remote_tmp}"
+        # global var used to delete the copied directory
+        COPIED_DIR="${src_base}"
 
-            # Move files into place.
-            ssh $SSH_PARAMS "${remote_server}" "tar cf - -C "${remote_tmp}"/"$SRC_BASE" . | tar xf - -C \"\$HOME\""
+        # Copy files to remote host.
+        tar cf - -C "$(dirname -- ${src_dir})" -- "${src_base}" | ssh $SSH_PARAMS "${remote_server}" 'tar xf - -C '"${remote_tmp}"
 
-            rm "$LIST"
+        if [ "$NO_COPY" = false ]; then
+            # copy files from remote_tmp directory to the copy_root_dir
+            ssh $SSH_PARAMS "${remote_server}" "tar cf - -C \"${remote_tmp}\" . | ${TAR_EXEC} tar xf - -C \"$COPY_ROOT_DIR\""
         fi
     fi
+    debug "copy_files, src_dir: $src_dir, remote_server: $remote_server, remote_tmp: $remote_tmp, COPY_ROOT_DIR: $COPY_ROOT_DIR, COPIED_DIR: $COPIED_DIR, TAR_EXEC: $TAR_EXEC"
 }
 
 ##
@@ -76,13 +97,13 @@ copy_files() {
 # @brief Copy a single file from a local directory to a remote server.
 #
 # Parameters:
-#   $1 - source file (e.g. /path/upload.file)
+#   $1 - source file (e.g. /local/path/to/upload.file)
 #   $2 - remote server name (e.g. server)
 #   $3 - remote tempdir target (e.g. ~/.drist_files_XXXXXXXXXXXXXXX)
 #
-# NOTE: Even in the case when a sigle file is copied to remote host
-#       if a file/directory is labled with the 'HOSTNAME' string in
-#       the ssame directory as the single file, it will be copied as
+# NOTE: Even in the case when a single file is copied to remote host
+#       if a file/directory is labeled with the 'HOSTNAME' string in
+#       the same directory as the single file, it will be copied as
 #       well.
 copy_single_file() {
     src_file=$1
@@ -90,23 +111,30 @@ copy_single_file() {
     remote_tmp=$3
 
     if [ -f "${src_file}" ]; then
-        # create list file
-        LIST=$(mktemp /tmp/drist-sync.XXXXXXXXXX)
+        if [ -z "${remote_server}" ]; then
+            echo "remote_server is blank, exiting"
+            exit 3
+        fi
+        if [ -z "${remote_tmp}" ]; then
+            echo "remote_tmp is blank, exiting"
+            exit 4
+        fi
+            
         # Get the current working directory.
-        if [ -f "$LIST" ]; then
-            # -l = keep symlink / -D = special device
-            find "${src_file}" -type f -or -type l | sed "s#^${src_file}/##" > "${LIST}"
+        file_name=$(basename -- "$src_file")
 
-            FILE_NAME=$(basename -- "$src_file")
+        # global used to delete the file
+        COPIED_FILE="${file_name}"
 
-            # copy file to remote host.
-            tar cf - -C "$(dirname -- "$src_file")" "./${FILE_NAME}" | ssh $SSH_PARAMS "${remote_server}" 'tar xf - -C '"${remote_tmp}"
+        # copy file to remote host.
+        tar cf - -C "$(dirname -- "$src_file")" "./${file_name}" | ssh $SSH_PARAMS "${remote_server}" 'tar xf - -C '"${remote_tmp}"
 
-            # move file into place.
-            ssh $SSH_PARAMS "${remote_server}" "tar cf - -C \"$remote_tmp\" . | tar xf - -C \"\$HOME\""
-            rm "$LIST"
+        # copy files from remote_tmp directory to the copy_root_dir
+        if [ "$NO_COPY" = false ]; then
+            ssh $SSH_PARAMS "${remote_server}" "tar cf - -C \"$remote_tmp\" . | ${TAR_EXEC} tar xf - -C \"\$COPY_ROOT_DIR\""
         fi
     fi
+    debug "copy_single_file, src_dir: $src_dir, remote_server: $remote_server, remote_tmp: $remote_tmp, COPY_ROOT_DIR: $COPY_ROOT_DIR, COPIED_FILE: $COPIED_FILE TAR_EXEC: $TAR_EXEC"
 }
 
 ##
@@ -114,7 +142,7 @@ copy_single_file() {
 # @brief Executes script on remote host.
 #
 # Parameters:
-#   $1 - script file (e.g. /path/script)
+#   $1 - script file (e.g. /local/path/to/script/to/invoke/on/remote/server)
 #   $2 - remote server name (e.g. server)
 #   $3 - remote tempdir target (e.g. ~/.drist_files_XXXXXXXXXXXXXXX)
 remote_script() {
@@ -122,14 +150,46 @@ remote_script() {
     remote_server=$2
     remote_tmp=$3
 
+    debug "remote_script, script_file: $script_file, remote_server: $remote_server, remote_temp: $remote_tmp, EXEC: $EXEC"
+
     if [ -f "${script_file}" ]; then
-        FILE=$(basename ${USE_FILE})
+        if [ -z "${remote_server}" ]; then
+            echo "remote_server is blank, exiting"
+            exit 5
+        fi
+        if [ -z "${remote_tmp}" ]; then
+            echo "remote_tmp is blank, exiting"
+            exit 6
+        fi
+            
+        file_name=$(basename ${script_file})
         ssh $SSH_PARAMS "${remote_server}" "cd ${remote_tmp} && \
-            cat - > ${remote_tmp}/${FILE} && \
-            chmod u+x ${remote_tmp}/${FILE} && \
-            ${EXEC} ${remote_tmp}/${FILE}" < "$script_file"
+            cat - > ${remote_tmp}/${file_name} && \
+            chmod u+x ${remote_tmp}/${file_name} && \
+            ${EXEC} ${remote_tmp}/${file_name}" < "$script_file"
     fi
 }
+
+##
+# delete_on_exit --
+# @brief Delete copied file and/or directory on exit.
+#
+# Parameters:
+delete_copied_files() {
+    remote_server=$1
+    debug "delete_copied_files, remote_server: $remote_server, delete_copied_files: $DELETE_COPIED_FILES, copy_root_dir: $COPY_ROOT_DIR, copied_file: $COPIED_FILE, copied_dir: $COPIED_DIR, EXEC: $EXEC"
+    if [ "$DELETE_COPIED_FILES" = true ]; then
+        if [ -n "$COPIED_FILE" ]; then
+            ssh $SSH_PARAMS "${remote_server}" "${EXEC} rm $COPY_ROOT_DIR/$COPIED_FILE"
+            debug "deleted file: $remote_server:$COPY_ROOT_DIR/$COPIED_FILE"
+        fi
+        if [ -n "$COPIED_DIR" ]; then
+            ssh $SSH_PARAMS "${remote_server}" "${EXEC} rm -rf $COPY_ROOT_DIR/$COPIED_DIR"
+            debug "deleted dir: $remote_server:$COPY_ROOT_DIR/$COPIED_DIR"
+        fi
+    fi
+}
+
 
 ##
 # create_temp --
@@ -137,13 +197,23 @@ remote_script() {
 #
 # Parameters:
 #   $1 - remote server name (e.g. server)
+#
+# NOTE: assigns value to global var
 create_temp() {
     remote_server=$1
 
+    debug "create_temp, remote_server: $remote_server"
+    
+    if [ -z "${remote_server}" ]; then
+        echo "remote_server is blank, exiting"
+        exit 7
+    fi
     TEMPDIR=$(ssh $SSH_PARAMS "${remote_server}" "mktemp -d ~/.drist_files_XXXXXXXXXXXXXXX")
-    if [ "$TEMPDIR" = "" ]; then
-        echo "mktemp error, aborting"
-        exit 1
+    if [ -z "$TEMPDIR" ]; then
+        echo "mktemp error, TEMPDIR is not set, aborting"
+        exit 8
+    else
+        debug "created temp dir: $TEMPDIR on remote server: ${remote_server}"
     fi
 }
 
@@ -158,12 +228,22 @@ delete_temp() {
     remote_server=$1
     remote_tmp=$2
 
-    # The following is a debug print.
-    if echo "${2}" | grep drist_files_ >/dev/null ; then
+    debug "delete_temp, remote_server: $remote_server, remote_tmp: $remote_tmp"
+
+    if [ -z "${remote_server}" ]; then
+        echo "remote_server is blank, exiting"
+        exit 9
+    fi
+    if [ -z "${remote_tmp}" ]; then
+        echo "remote_tmp is blank, exiting"
+        exit 10
+    fi
+    if echo "${remote_tmp}" | grep drist_files_ >/dev/null ; then
         ssh $SSH_PARAMS "$remote_server" "rm -fr ${remote_tmp}"
+        debug "deleted temp dir: $remote_tmp on remote server: ${remote_server}"
     else
-        echo "Problem, TEMPDIR was reset during execution, current value is = $remote_tmp"
-        exit 2
+        echo "Problem, temp dir was reset during execution, current value is = $remote_tmp"
+        exit 11
     fi
 }
 
@@ -203,11 +283,30 @@ do
         -h*)                                            # Help
             usage
             ;;
+        -v)                                             # enable debug logging
+            DEBUG=true
+            ;;
+        -vv)                                            # enable debug verbose logging
+            set -x
+            ;;
         -d)                                             # truncate hostname
             TRUNCATE=1
             ;;
+        -n)                                             # do not copy files out of the .drist temp dir
+            NO_COPY=true                                # instead, the script can use them directly in the temp dir
+            ;;
+        -r)                                             # root directory to copy files to, defaults to $HOME
+            [ $# -gt 1 ] || usage "-r requires a root directory to copy files to"
+            shift
+            old_copy_root_dir="$COPY_ROOT_DIR"
+            COPY_ROOT_DIR="$1"
+            debug "COPY_ROOT_DIR changed from default $old_copy_root_dir to $COPY_ROOT_DIR"
+            ;;
         -p)                                             # persistent ssh
             SSHONCE=1
+            ;;
+        -x)                                             # delete copied files when script finishes
+            DELETE_COPIED_FILES=true
             ;;
         -S)                                             # script file to run
             [ $# -gt 1 ] || usage "-S requires a script name"
@@ -230,6 +329,7 @@ do
                 PRIVILEGES_BIN="${1#-e}"
             fi
             PRIVILEGES=1
+            debug "privileges, PRIVILEGES_BIN: $PRIVILEGES_BIN, PRIVILEGES=$PRIVILEGES"
             ;;
         -*)
             usage "unknown option $1"
@@ -242,11 +342,14 @@ done
 # allow to use a privilege escalation program
 if [ "$PRIVILEGES" -eq 1 ]; then
     EXEC="$PRIVILEGES_BIN"
+    TAR_EXEC="$PRIVILEGES_BIN"
+    debug "EXEC: $EXEC, TAR_EXEC: $TAR_EXEC"
 fi
 
 # use ControlMaster to make connections persistent
 if [ "$SSHONCE" -eq 1 ]; then
    SSH_PARAMS='-o ControlMaster=auto -o ControlPath=/tmp/drist_ssh_%h_%p_%r.sock -o ControlPersist=1m'
+   debug "ssh_params: $SSH_PARAMS"
 fi
 
 # start looping over server list
@@ -255,26 +358,29 @@ if [ -f "$1" ]; then
 else
     SERVER_LIST="$@"
 fi
+debug "server_list: $SERVER_LIST"
 
 if [ "${SERVER_LIST}" = "" ]; then
     echo "No server specified"
-    exit 1
+    exit 12
 fi
 
 for remote_server in ${SERVER_LIST}
 do
 
+  debug "processing server: $remote_server"
   # check if host exists
   HOSTNAME=$(ssh $SSH_PARAMS "$remote_server" "uname -n")
   if [ "$?" -ne 0 ]; then
       echo "Error while ssh ${remote_server}"
-      exit 2
+      exit 13
   fi
 
   if [ "$TRUNCATE" -eq 1 ]; then
       HOSTNAME="${HOSTNAME%%.*}"
   fi
 
+  # assigns value to TEMPDIR
   create_temp "${remote_server}"
   copy_files "${USE_DIR}" "${remote_server}" "$TEMPDIR"
   copy_files "${USE_DIR}-${HOSTNAME}" "${remote_server}" "$TEMPDIR"
@@ -283,6 +389,9 @@ do
   remote_script "${USE_FILE}" "${remote_server}" "$TEMPDIR"
   remote_script "${USE_FILE}-${HOSTNAME}" "${remote_server}" "$TEMPDIR"
   delete_temp "${remote_server}" "$TEMPDIR"
+  if [ "$DELETE_COPIED_FILES" = true ]  && [ "$NO_COPY" = false ]; then
+    delete_copied_files "${remote_server}"
+  fi
 
   # close socket if persistence is active
   if [ "$SSHONCE" -eq 1 ]; then
